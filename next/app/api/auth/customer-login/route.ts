@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { createCustomerSessionValue } from "@/lib/auth"
+import { corsPreflight, withCors } from "@/lib/cors"
 import { prisma } from "@/lib/prisma"
 import { CUSTOMER_SESSION_COOKIE } from "@/lib/session-cookies"
 
@@ -9,13 +10,17 @@ type LoginBody = {
   password?: string
 }
 
+export async function OPTIONS(request: Request) {
+  return corsPreflight(request)
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as LoginBody
   const email = body.email?.trim().toLowerCase()
   const password = body.password ?? ""
 
   if (!email || !password) {
-    return NextResponse.json({ error: "Email and password are required." }, { status: 400 })
+    return withCors(request, NextResponse.json({ error: "Email and password are required." }, { status: 400 }))
   }
 
   const customer = await prisma.customer.findFirst({
@@ -23,11 +28,11 @@ export async function POST(request: Request) {
   })
 
   if (!customer?.password) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 })
+    return withCors(request, NextResponse.json({ error: "Invalid email or password." }, { status: 401 }))
   }
 
   if (customer.password !== password) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 })
+    return withCors(request, NextResponse.json({ error: "Invalid email or password." }, { status: 401 }))
   }
 
   const response = NextResponse.json({
@@ -51,5 +56,5 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 12,
   })
 
-  return response
+  return withCors(request, response)
 }

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
 
+import { corsPreflight, withCors } from "@/lib/cors"
 import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/session-cookies"
 
-export async function POST() {
+export async function OPTIONS(request: Request) {
+  return corsPreflight(request)
+}
+
+export async function POST(request: Request) {
   const response = NextResponse.json({ ok: true })
 
   response.cookies.set(CUSTOMER_SESSION_COOKIE, "", {
@@ -21,5 +26,5 @@ export async function POST() {
     maxAge: 0,
   })
 
-  return response
+  return withCors(request, response)
 }

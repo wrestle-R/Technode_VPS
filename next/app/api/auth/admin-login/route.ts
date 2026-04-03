@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 
+import { corsPreflight, withCors } from "@/lib/cors"
 import { ADMIN_SESSION_COOKIE } from "@/lib/session-cookies"
 
 type AdminLoginBody = {
   username?: string
   password?: string
+}
+
+export async function OPTIONS(request: Request) {
+  return corsPreflight(request)
 }
 
 export async function POST(request: Request) {
@@ -16,14 +21,14 @@ export async function POST(request: Request) {
   const adminPassword = process.env.ADMIN_PASSWORD
 
   if (!adminUsername || !adminPassword) {
-    return NextResponse.json(
+    return withCors(request, NextResponse.json(
       { error: "Admin credentials are not configured in environment variables." },
       { status: 500 }
-    )
+    ))
   }
 
   if (username !== adminUsername || password !== adminPassword) {
-    return NextResponse.json({ error: "Invalid admin credentials." }, { status: 401 })
+    return withCors(request, NextResponse.json({ error: "Invalid admin credentials." }, { status: 401 }))
   }
 
   const response = NextResponse.json({ ok: true })
@@ -35,5 +40,5 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 12,
   })
 
-  return response
+  return withCors(request, response)
 }
