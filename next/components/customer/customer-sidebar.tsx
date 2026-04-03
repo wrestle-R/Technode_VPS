@@ -60,7 +60,12 @@ export function CustomerSidebar() {
 
   const handleLogout = async () => {
     clearUser();
-    router.push("/");
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
   };
 
   return (

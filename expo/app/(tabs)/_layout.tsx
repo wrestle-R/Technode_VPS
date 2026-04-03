@@ -1,8 +1,26 @@
 import { Tabs } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
 import { Home, Bell, User, Cpu } from 'lucide-react-native';
+import { ActivityIndicator, View } from 'react-native';
+
+import { useAuth } from '@/contexts/auth-context';
 
 export default function TabsLayout() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <Redirect href={'/login' as never} />;
+  }
+
   return (
     <Tabs
       screenOptions={{

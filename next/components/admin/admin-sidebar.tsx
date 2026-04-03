@@ -115,6 +115,15 @@ export function AdminSidebar() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  };
+
   return (
     <Sidebar
       collapsible="icon"
@@ -220,7 +229,7 @@ export function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Sign Out"
-              onClick={() => router.push("/")}
+              onClick={handleLogout}
               className="mb-2 w-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
             >
               <LogOut className={cn("h-4 w-4", state === "expanded" && "ml-2")} />

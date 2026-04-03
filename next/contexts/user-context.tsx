@@ -16,10 +16,7 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<UserData | null>({
-    customerRepresentative: "Demo Customer",
-    email: "customer@technode.com",
-  })
+  const [user, setUserState] = useState<UserData | null>(null)
 
   const value = useMemo(
     () => ({

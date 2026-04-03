@@ -1,37 +1,29 @@
-const customers = [
-  { name: "Astra Manufacturing", plan: "Enterprise", devices: 42 },
-  { name: "Nova Energy", plan: "Pro", devices: 18 },
-  { name: "Pioneer Logistics", plan: "Enterprise", devices: 31 },
-]
+import { prisma } from "@/lib/prisma"
+import { CustomersTable } from "./customers-table"
 
-export default function AdminCustomersPage() {
+export const dynamic = "force-dynamic"
+
+export default async function AdminCustomersPage() {
+  const customers = await prisma.customer.findMany({
+    orderBy: { customer_id: "asc" },
+    select: {
+      customer_id: true,
+      company_name: true,
+      customer_representative: true,
+      email: true,
+      phone: true,
+      password: true,
+    },
+  })
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Customers</h1>
-        <p className="text-sm text-muted-foreground">Demo customer table shell for admin section.</p>
+        <p className="text-sm text-muted-foreground">Customers from Technode VPS database.</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <table className="min-w-full divide-y divide-border text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Name</th>
-              <th className="px-4 py-3 text-left font-medium">Plan</th>
-              <th className="px-4 py-3 text-left font-medium">Devices</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {customers.map((customer) => (
-              <tr key={customer.name}>
-                <td className="px-4 py-3">{customer.name}</td>
-                <td className="px-4 py-3">{customer.plan}</td>
-                <td className="px-4 py-3">{customer.devices}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CustomersTable customers={customers} />
     </div>
   )
 }

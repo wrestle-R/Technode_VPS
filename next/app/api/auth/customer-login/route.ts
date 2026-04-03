@@ -1,0 +1,55 @@
+import { NextResponse } from "next/server"
+
+import { createCustomerSessionValue } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { CUSTOMER_SESSION_COOKIE } from "@/lib/session-cookies"
+
+type LoginBody = {
+  email?: string
+  password?: string
+}
+
+export async function POST(request: Request) {
+  const body = (await request.json()) as LoginBody
+  const email = body.email?.trim().toLowerCase()
+  const password = body.password ?? ""
+
+  if (!email || !password) {
+    return NextResponse.json({ error: "Email and password are required." }, { status: 400 })
+  }
+
+  const customer = await prisma.customer.findFirst({
+    where: { email },
+  })
+
+  if (!customer?.password) {
+    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 })
+  }
+
+  if (customer.password !== password) {
+    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 })
+  }
+
+  const response = NextResponse.json({
+    ok: true,
+    customer: {
+      customerId: customer.customer_id,
+      email: customer.email,
+      customerRepresentative: customer.customer_representative,
+    },
+  })
+
+  response.cookies.set(CUSTOMER_SESSION_COOKIE, createCustomerSessionValue({
+    customerId: customer.customer_id,
+    email: customer.email ?? "",
+    customerRepresentative: customer.customer_representative ?? "Customer",
+  }), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 12,
+  })
+
+  return response
+}
