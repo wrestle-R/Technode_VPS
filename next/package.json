@@ -5,10 +5,11 @@
   "private": true,
   "scripts": {
     "dev": "npm run prisma:prepare && next dev --turbopack",
-    "build": "next build",
+    "build": "npm run prisma:prepare && next build",
     "start": "next start",
     "lint": "eslint",
     "prisma:prepare": "prisma generate && prisma migrate deploy",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
