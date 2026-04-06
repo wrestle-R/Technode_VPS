@@ -10,7 +10,6 @@ import {
   ChevronRight,
   BarChart3,
   Table,
-  FileText,
   Cpu,
   CircuitBoard,
   Wifi,
@@ -179,85 +178,52 @@ export function CustomerSidebar() {
                             transition={{ duration: 0.2 }}
                           >
                             <SidebarMenuSub className="border-l-primary/20">
-                              {unit.devices.map((device) => {
-                                const devicePath = `/ems/${unit.unitId}/${encodeURIComponent(device.deviceName)}`;
-                                const isDeviceActive =
-                                  pathname.includes(devicePath);
-
-                                return (
-                                  <Collapsible
-                                    key={device.id}
-                                    asChild
-                                    defaultOpen={isDeviceActive}
-                                    className="group/device"
-                                  >
-                                    <SidebarMenuSubItem>
-                                      <CollapsibleTrigger asChild>
-                                        <SidebarMenuSubButton
-                                          isActive={isDeviceActive}
-                                          className={cn(
-                                            "cursor-pointer transition-colors",
-                                            isDeviceActive
-                                              ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
-                                              : "hover:bg-muted/50"
-                                          )}
-                                        >
-                                          <CircuitBoard className="mr-1 h-3.5 w-3.5" />
-                                          <span className="flex-1 truncate">
-                                            {device.nickname ||
-                                              device.deviceName}
-                                          </span>
-                                          <ChevronRight className="h-3 w-3 transition-transform duration-200 group-data-[state=open]/device:rotate-90" />
-                                        </SidebarMenuSubButton>
-                                      </CollapsibleTrigger>
-
-                                      <CollapsibleContent>
-                                        <SidebarMenuSub className="ml-2 border-l-muted-foreground/20">
-                                          {[
-                                            {
-                                              title: "Charts",
-                                              href: `${devicePath}/charts`,
-                                              icon: BarChart3,
-                                            },
-                                            {
-                                              title: "Logs",
-                                              href: `${devicePath}/logs`,
-                                              icon: Table,
-                                            },
-                                            {
-                                              title: "Reports",
-                                              href: `${devicePath}/reports`,
-                                              icon: FileText,
-                                            },
-                                          ].map((sub) => (
-                                            <SidebarMenuSubItem
-                                              key={sub.title}
-                                            >
-                                              <SidebarMenuSubButton
-                                                href={sub.href}
-                                                isActive={pathname.startsWith(
-                                                  sub.href
-                                                )}
-                                                className={cn(
-                                                  "text-xs transition-colors",
-                                                  pathname.startsWith(
-                                                    sub.href
-                                                  )
-                                                    ? "bg-primary/8 text-primary font-medium"
-                                                    : "hover:bg-muted/50"
-                                                )}
-                                              >
-                                                <sub.icon className="mr-1.5 h-3 w-3" />
-                                                {sub.title}
-                                              </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
-                                          ))}
-                                        </SidebarMenuSub>
-                                      </CollapsibleContent>
-                                    </SidebarMenuSubItem>
-                                  </Collapsible>
-                                );
-                              })}
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  href={`/devices/ems/${unit.unitId}/overview`}
+                                  isActive={pathname.startsWith(`/devices/ems/${unit.unitId}/overview`)}
+                                  className={cn(
+                                    "transition-colors",
+                                    pathname.startsWith(`/devices/ems/${unit.unitId}/overview`)
+                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
+                                      : "hover:bg-muted/50"
+                                  )}
+                                >
+                                  <CircuitBoard className="mr-1 h-3.5 w-3.5" />
+                                  <span className="flex-1 truncate">Overview</span>
+                                  <span className="text-[11px] text-muted-foreground">{unit.slaveCount}</span>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  href={`/devices/ems/${unit.unitId}/logs`}
+                                  isActive={pathname.startsWith(`/devices/ems/${unit.unitId}/logs`)}
+                                  className={cn(
+                                    "transition-colors",
+                                    pathname.startsWith(`/devices/ems/${unit.unitId}/logs`)
+                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
+                                      : "hover:bg-muted/50"
+                                  )}
+                                >
+                                  <Table className="mr-1 h-3.5 w-3.5" />
+                                  <span className="flex-1 truncate">Logs</span>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  href={`/devices/ems/${unit.unitId}/charts`}
+                                  isActive={pathname.startsWith(`/devices/ems/${unit.unitId}/charts`)}
+                                  className={cn(
+                                    "transition-colors",
+                                    pathname.startsWith(`/devices/ems/${unit.unitId}/charts`)
+                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
+                                      : "hover:bg-muted/50"
+                                  )}
+                                >
+                                  <BarChart3 className="mr-1 h-3.5 w-3.5" />
+                                  <span className="flex-1 truncate">Charts</span>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
                             </SidebarMenuSub>
                           </motion.div>
                         </AnimatePresence>

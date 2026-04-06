@@ -15,6 +15,44 @@ model Customer {
   phone                     String? @db.VarChar(20)
   remark                    String? @db.VarChar(255)
   password                  String? @db.VarChar(255)
+  ems_units                 EmsUnit[]
 
   @@map("customers")
+}
+
+model EmsUnit {
+  id                  BigInt    @id @default(autoincrement())
+  unit_id             String    @unique @db.VarChar(64)
+  customer_id         Int?
+  location_label      String?   @db.VarChar(120)
+  latitude            Decimal?  @db.Decimal(10, 6)
+  longitude           Decimal?  @db.Decimal(10, 6)
+  device_type         String?   @db.VarChar(120)
+  last_seen_at        DateTime?
+  topic_path          String?   @db.VarChar(255)
+  unit_field_template Json
+  rtu_overrides       Json
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  customer            Customer? @relation(fields: [customer_id], references: [customer_id], onDelete: SetNull)
+  logs                EmsLog[]
+
+  @@index([customer_id])
+  @@index([last_seen_at])
+  @@map("ems_units")
+}
+
+model EmsLog {
+  id              BigInt   @id @default(autoincrement())
+  ems_unit_id     BigInt
+  device_timestamp DateTime
+  raw_unit_payload Json
+  raw_rtu_array    Json
+  mapped_rtu_array Json
+  created_at       DateTime @default(now())
+  ems_unit         EmsUnit  @relation(fields: [ems_unit_id], references: [id], onDelete: Cascade)
+
+  @@index([ems_unit_id, device_timestamp(sort: Desc)])
+  @@index([created_at])
+  @@map("ems_logs")
 }

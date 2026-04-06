@@ -81,8 +81,16 @@ const navGroups: NavGroup[] = [
         icon: Gauge,
         subItems: [
           {
-            title: "All Units",
-            href: "/admin/devices/ems",
+            title: "Assigned Units",
+            href: "/admin/devices/ems?assignment=assigned",
+          },
+          {
+            title: "Unassigned Units",
+            href: "/admin/devices/ems?assignment=unassigned",
+          },
+          {
+            title: "Customers",
+            href: "/admin/devices/ems?view=customers",
           },
         ],
       },
@@ -96,8 +104,12 @@ export function AdminSidebar() {
   const { state } = useSidebar();
 
   const isActive = (url: string, hasChildren = false) => {
+    if (typeof window !== "undefined") {
+      const currentUrl = `${pathname}${window.location.search}`;
+      if (currentUrl === url) return true;
+    }
     if (pathname === url) return true;
-    if (hasChildren) return pathname.startsWith(url + "/");
+    if (hasChildren) return pathname.startsWith(url.split("?")[0] + "/") || pathname === url.split("?")[0];
     return false;
   };
 

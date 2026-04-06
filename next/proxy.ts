@@ -6,7 +6,7 @@ import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/session-coo
 const customerProtectedPrefixes = ["/dashboard", "/devices", "/ems", "/profile"]
 const adminLoginPath = "/hidden-admin-login"
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const customerSession = request.cookies.get(CUSTOMER_SESSION_COOKIE)?.value
   const adminSession = request.cookies.get(ADMIN_SESSION_COOKIE)?.value

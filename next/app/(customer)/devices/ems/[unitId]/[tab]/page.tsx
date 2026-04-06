@@ -1,6 +1,12 @@
 import { notFound } from "next/navigation"
 
+import { getCustomerSessionFromCookies } from "@/lib/auth"
+import { CustomerUnitTabClient } from "@/components/customer/ems/unit-tab-client"
+import { getCustomerEmsUnitDetail } from "@/lib/ems/queries"
+
 const validTabs = new Set(["overview", "charts", "logs"])
+
+export const dynamic = "force-dynamic"
 
 export default async function CustomerUnitTabPage({
   params,
@@ -13,18 +19,19 @@ export default async function CustomerUnitTabPage({
     notFound()
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{unitId.toUpperCase()}</h1>
-        <p className="text-sm text-muted-foreground">{tab.toUpperCase()} panel shell for demo presentation.</p>
-      </div>
+  const session = await getCustomerSessionFromCookies()
+  if (!session) {
+    notFound()
+  }
 
-      <div className="rounded-2xl border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          This is the {tab} page for {unitId}. Data widgets can be integrated later without changing the layout system.
-        </p>
-      </div>
-    </div>
-  )
+  const unit = await getCustomerEmsUnitDetail({
+    customerId: session.customerId,
+    unitId,
+  })
+
+  if (!unit) {
+    notFound()
+  }
+
+  return <CustomerUnitTabClient initialUnit={unit} tab={tab} />
 }
