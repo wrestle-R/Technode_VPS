@@ -1,17 +1,17 @@
 import mqtt from "mqtt"
 
-import { MQTT_PUBLIC_BROKER_URL, MQTT_TOPIC_PATTERNS } from "@/lib/ems/config"
+import { MQTT_BROKER_URL, MQTT_TOPIC_PATTERNS } from "@/lib/ems/config"
 import { ingestEmsPayload, parseIncomingPayload } from "@/lib/ems/service"
 
 const clientId = `technode-ems-worker-${Math.random().toString(16).slice(2, 10)}`
 
-const client = mqtt.connect(MQTT_PUBLIC_BROKER_URL, {
+const client = mqtt.connect(MQTT_BROKER_URL, {
   clientId,
   reconnectPeriod: 2000,
 })
 
 client.on("connect", () => {
-  console.log(`[ems:mqtt] connected to ${MQTT_PUBLIC_BROKER_URL} as ${clientId}`)
+  console.log(`[ems:mqtt] connected to ${MQTT_BROKER_URL} as ${clientId}`)
   client.subscribe([...MQTT_TOPIC_PATTERNS], (error) => {
     if (error) {
       console.error("[ems:mqtt] subscribe failed", error)

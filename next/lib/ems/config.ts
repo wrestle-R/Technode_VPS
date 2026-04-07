@@ -22,7 +22,7 @@ const DEFAULT_KEYS = [
   "KvArh",
 ] as const
 
-export const MQTT_PUBLIC_BROKER_URL = "mqtt://broker.hivemq.com:1883"
+export const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL ?? "mqtt://127.0.0.1:1883"
 export const MQTT_TOPIC_PATTERNS = ["+/ems", "/+/ems"] as const
 
 export function buildDefaultFieldTemplate(): EmsFieldTemplateEntry[] {

@@ -11,7 +11,7 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 
 
-BROKER_HOST = os.getenv("EMS_TEST_BROKER_HOST", "broker.hivemq.com")
+BROKER_HOST = os.getenv("EMS_TEST_BROKER_HOST", "localhost")
 BROKER_PORT = int(os.getenv("EMS_TEST_BROKER_PORT", "1883"))
 UNIT_ID = os.getenv("EMS_TEST_UNIT_ID", "TN-862360078027385")
 TOPIC = os.getenv("EMS_TEST_TOPIC", f"/{UNIT_ID}/ems")
