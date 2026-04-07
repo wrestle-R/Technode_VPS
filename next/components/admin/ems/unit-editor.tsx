@@ -43,6 +43,7 @@ type UnitEditorProps = {
     deviceType: string | null
     lastSeenAt: string | null
     topicPath: string | null
+    scalingFactor: number
     unitFieldTemplate: EmsFieldTemplateEntry[]
     rtuOverrides: EmsRtuOverrides
     rtus: RtuRow[]
@@ -65,6 +66,7 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
   const [locationLabel, setLocationLabel] = useState(unit.locationLabel ?? "")
   const [latitude, setLatitude] = useState(unit.latitude?.toString() ?? "")
   const [longitude, setLongitude] = useState(unit.longitude?.toString() ?? "")
+  const [scalingFactor, setScalingFactor] = useState(unit.scalingFactor?.toString() ?? "1")
   const [unitTemplate, setUnitTemplate] = useState<EmsFieldTemplateEntry[]>(
     unit.unitFieldTemplate.slice().sort((a, b) => a.order - b.order)
   )
@@ -109,6 +111,13 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
   async function save() {
     setSaving(true)
 
+    const parsedScalingFactor = Number(scalingFactor)
+    if (!Number.isFinite(parsedScalingFactor) || parsedScalingFactor < 0.01 || parsedScalingFactor > 10) {
+      toast.error("Scaling factor must be between 0.01 and 10")
+      setSaving(false)
+      return
+    }
+
     const rtuOverrides = rtus.reduce<EmsRtuOverrides>((accumulator, rtu) => {
       accumulator[rtu.rtuKey] = {
         nickname: rtu.nickname.trim() || undefined,
@@ -127,6 +136,7 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
           locationLabel,
           latitude: latitude ? Number(latitude) : null,
           longitude: longitude ? Number(longitude) : null,
+          scalingFactor: parsedScalingFactor,
           unitFieldTemplate: unitTemplate,
           rtuOverrides,
         }),
@@ -217,6 +227,18 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
                   className="h-11 rounded-2xl border border-input bg-background px-4"
                   value={longitude}
                   onChange={(event) => setLongitude(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium">Scaling Factor</span>
+                <input
+                  className="h-11 rounded-2xl border border-input bg-background px-4"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="10"
+                  value={scalingFactor}
+                  onChange={(event) => setScalingFactor(event.target.value)}
                 />
               </label>
             </div>

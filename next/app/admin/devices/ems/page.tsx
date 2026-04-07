@@ -92,54 +92,112 @@ export default async function AdminEmsPage({
       </div>
 
       {view === "customers" ? (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {customers.map((customer) => (
-            <Link
-              href={`/admin/devices/ems?customerId=${customer.customerId}`}
-              key={customer.customerId}
-              className="card-glow rounded-2xl border bg-card p-5 shadow-sm transition hover:border-primary/40"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Customer</p>
-              <p className="mt-1 text-xl font-semibold">{customer.companyName}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{customer.customerName}</p>
-              <p className="mt-3 text-sm text-muted-foreground">Customer ID: {customer.customerId}</p>
-              <p className="mt-1 text-sm font-medium">Assigned EMS units: {customer.unitCount}</p>
-            </Link>
-          ))}
-          {customers.length === 0 ? (
-            <article className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-              No customers currently own EMS units.
-            </article>
-          ) : null}
+        <section className="panel-surface overflow-hidden rounded-[24px]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted/45 text-left text-[11px] uppercase tracking-[0.18em] text-muted-foreground border-b border-border/60">
+                <tr>
+                  <th className="px-6 py-4 font-semibold">Customer ID</th>
+                  <th className="px-6 py-4 font-semibold">Company / Client</th>
+                  <th className="px-6 py-4 font-semibold text-center">Assigned Units</th>
+                  <th className="px-6 py-4 text-right font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60 bg-white/70">
+                {customers.map((customer) => (
+                  <tr key={customer.customerId} className="transition-colors hover:bg-white/90">
+                    <td className="px-6 py-4 font-medium text-primary">
+                      #{customer.customerId}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold">{customer.customerName}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{customer.companyName}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                        {customer.unitCount}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link
+                        href={`/admin/devices/ems?customerId=${customer.customerId}`}
+                        className="inline-flex h-8 items-center rounded-lg border border-border/70 bg-white shadow-sm px-3 text-[11px] font-medium transition-colors hover:bg-muted"
+                      >
+                        View Units
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {customers.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                      No customers currently own EMS units.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {units.map((unit: (typeof units)[number]) => (
-            <Link
-              href={`/admin/devices/ems/${encodeURIComponent(unit.unitId)}`}
-              className="card-glow rounded-2xl border bg-card p-5 shadow-sm transition hover:border-primary/40"
-              key={unit.id}
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Unit ID</p>
-              <p className="mt-1 text-xl font-semibold">{unit.unitId}</p>
-              <p className="mt-3 text-sm text-muted-foreground">{unit.locationLabel ?? "No location set"}</p>
-              <p className="mt-1 text-sm font-medium">Status: {unit.status}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Customer: {unit.customerName ?? "Unassigned"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Last seen: {unit.lastSeenAt ? new Date(unit.lastSeenAt).toLocaleString() : "Never"}
-              </p>
-              <p className="mt-3 text-sm font-medium">
-                Slaves in latest snapshot: {unit.latestLog?.mappedRtuArray.length ?? 0}
-              </p>
-            </Link>
-          ))}
-          {units.length === 0 ? (
-            <article className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-              No EMS units match the current filter.
-            </article>
-          ) : null}
+        <section className="panel-surface overflow-hidden rounded-[24px]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted/45 text-left text-[11px] uppercase tracking-[0.18em] text-muted-foreground border-b border-border/60">
+                <tr>
+                  <th className="px-6 py-4 font-semibold">Unit ID</th>
+                  <th className="px-6 py-4 font-semibold">Customer & Location</th>
+                  <th className="px-6 py-4 font-semibold text-center">Status</th>
+                  <th className="px-6 py-4 font-semibold text-center">Slaves</th>
+                  <th className="px-6 py-4 text-right font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60 bg-white/70">
+                {units.map((unit: (typeof units)[number]) => (
+                  <tr key={unit.id} className="transition-colors hover:bg-white/90">
+                    <td className="px-6 py-4 font-medium text-primary">
+                      <div className="font-semibold">{unit.unitId}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium">{unit.customerName ?? <span className="text-muted-foreground text-xs italic">Unassigned</span>}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{unit.locationLabel ?? "No location set"}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center text-xs">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: unit.status.toLowerCase() === 'online' ? '#22c55e' : '#ef4444' }} />
+                        <span className={unit.status.toLowerCase() === 'online' ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
+                          {unit.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1">
+                        {unit.lastSeenAt ? new Date(unit.lastSeenAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : "Never"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                        {unit.latestLog?.mappedRtuArray.length ?? 0}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link
+                        href={`/admin/devices/ems/${encodeURIComponent(unit.unitId)}`}
+                        className="inline-flex h-8 items-center rounded-lg border border-border/70 bg-white shadow-sm px-3 text-[11px] font-medium transition-colors hover:bg-muted"
+                      >
+                        Manage
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {units.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                      No EMS units match the current filter.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>

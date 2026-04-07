@@ -49,6 +49,7 @@ model EmsUnit {
   topic_path          String?   @db.VarChar(255)
   unit_field_template Json
   rtu_overrides       Json
+  scalingFactor       Float     @default(1) @map("scaling_factor")
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
   customer            Customer? @relation(fields: [customer_id], references: [customer_id], onDelete: SetNull)

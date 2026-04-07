@@ -11,6 +11,7 @@ type UpdateEmsUnitBody = {
   locationLabel?: string | null
   latitude?: number | null
   longitude?: number | null
+  scalingFactor?: number
   unitFieldTemplate?: unknown
   rtuOverrides?: unknown
 }
@@ -46,7 +47,13 @@ export async function PUT(
   }
 
   const { unitId } = await params
-  const body = (await request.json()) as UpdateEmsUnitBody
+  let body: UpdateEmsUnitBody
+
+  try {
+    body = (await request.json()) as UpdateEmsUnitBody
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 })
+  }
 
   const customerId =
     body.customerId == null || body.customerId === 0 ? null : Number(body.customerId)
@@ -65,20 +72,47 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid longitude." }, { status: 400 })
   }
 
+  const scalingFactor = body.scalingFactor == null ? 1 : Number(body.scalingFactor)
+  if (Number.isNaN(scalingFactor) || scalingFactor < 0.01 || scalingFactor > 10) {
+    return NextResponse.json({ error: "Invalid scaling factor. Must be between 0.01 and 10." }, { status: 400 })
+  }
+
   const unitFieldTemplate = normalizeFieldTemplate(body.unitFieldTemplate)
   const rtuOverrides = normalizeRtuOverrides(body.rtuOverrides)
 
-  await prisma.emsUnit.update({
-    where: { unit_id: unitId },
-    data: {
-      customer_id: customerId,
-      location_label: body.locationLabel?.trim() || null,
-      latitude,
-      longitude,
-      unit_field_template: asJson(unitFieldTemplate),
-      rtu_overrides: asJson(rtuOverrides),
-    },
-  })
+  try {
+    await prisma.emsUnit.update({
+      where: { unit_id: unitId },
+      data: {
+        customer:
+          customerId == null
+            ? { disconnect: true }
+            : {
+                connect: {
+                  customer_id: customerId,
+                },
+              },
+        location_label: body.locationLabel?.trim() || null,
+        latitude,
+        longitude,
+        scalingFactor,
+        unit_field_template: asJson(unitFieldTemplate),
+        rtu_overrides: asJson(rtuOverrides),
+      },
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2025") {
+        return NextResponse.json({ error: "Unit not found." }, { status: 404 })
+      }
+
+      if (error.code === "P2003") {
+        return NextResponse.json({ error: "Invalid customer reference." }, { status: 400 })
+      }
+    }
+
+    return NextResponse.json({ error: "Failed to update EMS unit." }, { status: 500 })
+  }
 
   const unit = await getAdminEmsUnit(unitId)
   return NextResponse.json({ ok: true, unit })

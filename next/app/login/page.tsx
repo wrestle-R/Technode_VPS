@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { LoginForm } from "@/components/demo/login-form"
+import { LoginForm } from "@/components/auth/login-form"
 import { resolveRequestCompany } from "@/lib/company"
 
 export async function generateMetadata() {

@@ -8,6 +8,17 @@ function asNumber(value: { toString(): string } | null | undefined) {
   return value ? Number(value.toString()) : null
 }
 
+function readScalingFactor(unit: Record<string, unknown>) {
+  const raw =
+    typeof unit.scalingFactor === "number"
+      ? unit.scalingFactor
+      : typeof unit.scaling_factor === "number"
+        ? unit.scaling_factor
+        : 1
+
+  return Number.isFinite(raw) ? raw : 1
+}
+
 function inferStatus(_rawPayload: unknown, lastSeenAt: Date | null) {
   if (!lastSeenAt) {
     return "Unknown"
@@ -45,7 +56,8 @@ type UnitWithLogs = Prisma.EmsUnitGetPayload<{
 function formatMappedArray(
   rawRtuArray: unknown,
   unitTemplate: EmsFieldTemplateEntry[],
-  overrides: ReturnType<typeof normalizeRtuOverrides>
+  overrides: ReturnType<typeof normalizeRtuOverrides>,
+  scalingFactor: number = 1
 ) {
   return mapStoredRtuArray({
     rawRtuArray,
@@ -64,7 +76,7 @@ function formatMappedArray(
             key,
             label: field?.label ?? key,
             order: field?.order ?? Number.MAX_SAFE_INTEGER,
-            value,
+            value: typeof value === "number" ? value * scalingFactor : value,
           }
         })
         .sort((a, b) => a.order - b.order)
@@ -85,8 +97,9 @@ function formatMappedArray(
 function formatUnit(unit: UnitWithLogs) {
   const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
   const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
   const latestLog = unit.logs[0] ?? null
-  const mappedRtus = latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides) : []
+  const mappedRtus = latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides, scalingFactor) : []
 
   return {
     id: unit.id.toString(),
@@ -102,6 +115,7 @@ function formatUnit(unit: UnitWithLogs) {
     status: inferStatus(latestLog?.raw_unit_payload, unit.last_seen_at ?? null),
     unitFieldTemplate: unitTemplate,
     rtuOverrides: overrides,
+    scalingFactor,
     latestLog: latestLog
       ? {
           id: latestLog.id.toString(),
@@ -268,10 +282,11 @@ export async function getAdminEmsUnit(unitId: string) {
   const formatted = formatUnit(unit)
   const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
   const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
   const knownRtuMap = new Map<string, ReturnType<typeof formatMappedArray>[number]>()
 
   for (const log of unit.logs) {
-    for (const rtu of formatMappedArray(log.raw_rtu_array, unitTemplate, overrides)) {
+    for (const rtu of formatMappedArray(log.raw_rtu_array, unitTemplate, overrides, scalingFactor)) {
       if (!knownRtuMap.has(rtu.rtuKey)) {
         knownRtuMap.set(rtu.rtuKey, rtu)
       }
@@ -284,7 +299,7 @@ export async function getAdminEmsUnit(unitId: string) {
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
       status: inferStatus(log.raw_unit_payload, log.device_timestamp),
-      rtus: formatMappedArray(log.raw_rtu_array, unitTemplate, overrides),
+      rtus: formatMappedArray(log.raw_rtu_array, unitTemplate, overrides, scalingFactor),
     })),
     rtus: Array.from(knownRtuMap.values()),
   }
@@ -305,8 +320,9 @@ export async function getCustomerEmsUnits(customerId: number) {
   return units.map((unit: (typeof units)[number]) => {
     const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
     const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+    const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
     const latestLog = unit.logs[0] ?? null
-    const mappedRtus = latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides) : []
+    const mappedRtus = latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides, scalingFactor) : []
 
     return {
       id: unit.id.toString(),
@@ -345,6 +361,7 @@ export async function getCustomerEmsUnitDetail({
 
   const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
   const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
   const latestLog = unit.logs[0] ?? null
 
   return {
@@ -356,12 +373,12 @@ export async function getCustomerEmsUnitDetail({
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
     lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
-    latestRtus: latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides) : [],
+    latestRtus: latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides, scalingFactor) : [],
     logs: unit.logs.map((log: (typeof unit.logs)[number]) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
       status: inferStatus(log.raw_unit_payload, log.device_timestamp),
-      rtus: formatMappedArray(log.raw_rtu_array, unitTemplate, overrides),
+      rtus: formatMappedArray(log.raw_rtu_array, unitTemplate, overrides, scalingFactor),
     })),
   }
 }
