@@ -46,10 +46,10 @@ import {
 import { SidebarDeviceSkeleton } from "@/components/customer/ems/page-skeleton";
 
 export function CustomerSidebar({
-  companyLogoUrl,
+  companySidebarImageUrl,
   companyName,
 }: {
-  companyLogoUrl: string
+  companySidebarImageUrl: string
   companyName: string
 }) {
   const pathname = usePathname();
@@ -100,14 +100,14 @@ export function CustomerSidebar({
           {state === "expanded" && (
             <Link
               href="/dashboard"
-              className="mb-4 flex items-center justify-center"
+              className="mx-3 mt-3 mb-4 flex items-center justify-center rounded-[26px] border border-white/10 bg-white/8 px-4 py-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.85)]"
             >
               <Image
-                src={companyLogoUrl}
+                src={companySidebarImageUrl}
                 alt={companyName}
                 width={140}
                 height={60}
-                className="mr-12 mt-2 h-10 w-auto object-contain"
+                className="h-10 w-auto object-contain"
                 priority
                 unoptimized
               />
@@ -116,7 +116,7 @@ export function CustomerSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100/55">
             Main
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -129,7 +129,7 @@ export function CustomerSidebar({
                   className={cn(
                     state === "expanded" &&
                       isActive("/dashboard") &&
-                      "border-l-4 border-primary bg-primary/10 pl-2 font-medium"
+                      "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
                   )}
                 >
                   <Home />
@@ -141,7 +141,7 @@ export function CustomerSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100/55">
             Devices
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -149,7 +149,7 @@ export function CustomerSidebar({
               {devicesLoading ? (
                 <SidebarDeviceSkeleton />
               ) : units.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-muted-foreground/60">
+                <div className="px-3 py-4 text-center text-xs text-sky-100/50">
                   No devices assigned
                 </div>
               ) : (
@@ -172,7 +172,7 @@ export function CustomerSidebar({
                             "cursor-pointer",
                             state === "expanded" &&
                               pathname.includes(`/ems/${unit.unitId}`) &&
-                              "border-l-4 border-primary bg-primary/10 pl-2 font-medium"
+                              "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
                           )}
                         >
                           <DeviceIcon className="h-4 w-4 shrink-0" />
@@ -181,13 +181,13 @@ export function CustomerSidebar({
                               className={cn(
                                 "text-[10px] font-semibold uppercase tracking-[0.18em]",
                                 pathname.includes(`/ems/${unit.unitId}`)
-                                  ? "text-foreground/80"
-                                  : "text-muted-foreground"
+                                  ? "text-sky-100"
+                                  : "text-sky-100/60"
                               )}
                             >
                               {getTypeLabel(unit.deviceType)}
                             </span>
-                            <span className="truncate font-mono text-xs text-muted-foreground">
+                            <span className="truncate font-mono text-xs text-sky-50/70">
                               {formatUnitId(unit.unitId)}
                             </span>
                           </span>
@@ -214,7 +214,7 @@ export function CustomerSidebar({
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <SidebarMenuSub className="border-l-primary/20">
+                            <SidebarMenuSub className="border-l-white/15">
                               <SidebarMenuSubItem>
                                 <SidebarMenuSubButton
                                   href={`/devices/ems/${unit.unitId}/overview`}
@@ -222,13 +222,13 @@ export function CustomerSidebar({
                                   className={cn(
                                     "transition-colors",
                                     pathname.startsWith(`/devices/ems/${unit.unitId}/overview`)
-                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
-                                      : "hover:bg-muted/50"
+                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                      : "hover:bg-white/8"
                                   )}
                                 >
                                   <CircuitBoard className="mr-1 h-3.5 w-3.5" />
                                   <span className="flex-1 truncate">Overview</span>
-                                  <span className="text-[11px] text-muted-foreground">{unit.slaveCount}</span>
+                                  <span className="text-[11px] text-sky-100/60">{unit.slaveCount}</span>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>
                               <SidebarMenuSubItem>
@@ -238,8 +238,8 @@ export function CustomerSidebar({
                                   className={cn(
                                     "transition-colors",
                                     pathname.startsWith(`/devices/ems/${unit.unitId}/logs`)
-                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
-                                      : "hover:bg-muted/50"
+                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                      : "hover:bg-white/8"
                                   )}
                                 >
                                   <Table className="mr-1 h-3.5 w-3.5" />
@@ -253,8 +253,8 @@ export function CustomerSidebar({
                                   className={cn(
                                     "transition-colors",
                                     pathname.startsWith(`/devices/ems/${unit.unitId}/charts`)
-                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
-                                      : "hover:bg-muted/50"
+                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                      : "hover:bg-white/8"
                                   )}
                                 >
                                   <BarChart3 className="mr-1 h-3.5 w-3.5" />
@@ -287,7 +287,7 @@ export function CustomerSidebar({
                 "h-auto w-full py-2.5",
                 isActive("/profile")
                   ? "border-l-4 border-primary bg-primary/10"
-                  : "hover:bg-muted/50"
+                  : "hover:bg-white/8"
               )}
             >
               <div className="flex w-full items-center gap-3">
@@ -304,7 +304,7 @@ export function CustomerSidebar({
                     <span className="truncate text-sm font-medium">
                       {user?.customerRepresentative || "My Profile"}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-sky-100/60">
                       {user?.email || "View profile"}
                     </span>
                   </div>
@@ -316,7 +316,7 @@ export function CustomerSidebar({
             <SidebarMenuButton
               tooltip="Sign Out"
               onClick={handleLogout}
-              className="mb-2 w-full cursor-pointer text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              className="mb-2 w-full cursor-pointer text-rose-200 hover:bg-rose-500/12 hover:text-white"
             >
               <LogOut
                 className={cn(

@@ -40,8 +40,9 @@ export default async function AdminCustomersPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Customers</h1>
-        <p className="text-sm text-muted-foreground">Customers are company-owned accounts and cannot exist without a company.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/75">Tenant Accounts</p>
+        <h1 className="mt-2 text-3xl font-semibold">Customers</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Customers are shown in a clean editable table for faster admin updates.</p>
       </div>
 
       <CustomersTable customers={customers} companies={companies} />

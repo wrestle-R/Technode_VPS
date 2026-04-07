@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { hasAdminSession } from "@/lib/admin-auth"
 import {
+  getCompanyAssetFilename,
   getCompanyAssetRelativePath,
   getCompanyAssetUrl,
   renameCompanyAssets,
@@ -22,17 +23,20 @@ function serializeCompany(company: {
   company_id: number
   name: string
   slug: string
-  logo_path: string
-  icon_path: string
+  login_image_path: string
+  sidebar_image_path: string
+  browser_icon_path: string
 }) {
   return {
     company_id: company.company_id,
     name: company.name,
     slug: company.slug,
-    logo_path: company.logo_path,
-    icon_path: company.icon_path,
-    logo_url: getCompanyAssetUrl(company.logo_path),
-    icon_url: getCompanyAssetUrl(company.icon_path),
+    login_image_path: company.login_image_path,
+    sidebar_image_path: company.sidebar_image_path,
+    browser_icon_path: company.browser_icon_path,
+    login_image_url: getCompanyAssetUrl(company.login_image_path),
+    sidebar_image_url: getCompanyAssetUrl(company.sidebar_image_path),
+    browser_icon_url: getCompanyAssetUrl(company.browser_icon_path),
     login_url: buildCompanyLoginUrl(company.slug),
   }
 }
@@ -64,29 +68,44 @@ export async function PUT(
     const formData = await request.formData()
     const name = getStringField(formData.get("name"))
     const slug = getStringField(formData.get("slug")).toLowerCase()
-    const logo = getFileField(formData.get("logo"))
-    const icon = getFileField(formData.get("icon"))
+    const loginImage = getFileField(formData.get("loginImage"))
+    const sidebarImage = getFileField(formData.get("sidebarImage"))
+    const browserIcon = getFileField(formData.get("browserIcon"))
     if (!name || !slug) {
       return NextResponse.json({ error: "name and slug are required." }, { status: 400 })
     }
 
     await renameCompanyAssets(existing.slug, slug)
 
-    const logoPath = logo
-      ? await saveCompanyAsset({ slug, file: logo, kind: "logo" })
-      : getCompanyAssetRelativePath(slug, existing.logo_path.split("/").pop() ?? "logo.png")
+    const loginImagePath = loginImage
+      ? await saveCompanyAsset({ slug, file: loginImage, kind: "loginImage" })
+      : getCompanyAssetRelativePath(
+          slug,
+          existing.login_image_path.split("/").pop() ?? getCompanyAssetFilename("loginImage", ".png")
+        )
 
-    const iconPath = icon
-      ? await saveCompanyAsset({ slug, file: icon, kind: "icon" })
-      : getCompanyAssetRelativePath(slug, existing.icon_path.split("/").pop() ?? "icon.png")
+    const sidebarImagePath = sidebarImage
+      ? await saveCompanyAsset({ slug, file: sidebarImage, kind: "sidebarImage" })
+      : getCompanyAssetRelativePath(
+          slug,
+          existing.sidebar_image_path.split("/").pop() ?? getCompanyAssetFilename("sidebarImage", ".png")
+        )
+
+    const browserIconPath = browserIcon
+      ? await saveCompanyAsset({ slug, file: browserIcon, kind: "browserIcon" })
+      : getCompanyAssetRelativePath(
+          slug,
+          existing.browser_icon_path.split("/").pop() ?? getCompanyAssetFilename("browserIcon", ".ico")
+        )
 
     const company = await prisma.company.update({
       where: { company_id: id },
       data: {
         name,
         slug,
-        logo_path: logoPath,
-        icon_path: iconPath,
+        login_image_path: loginImagePath,
+        sidebar_image_path: sidebarImagePath,
+        browser_icon_path: browserIconPath,
       },
     })
 

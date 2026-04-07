@@ -80,12 +80,18 @@ export function CustomerCreateForm({
   }
 
   return (
-    <form className="grid gap-4 rounded-2xl border bg-card p-5 shadow-sm" onSubmit={handleSubmit}>
+    <form className="panel-surface grid gap-6 rounded-[30px] p-6 sm:p-8" onSubmit={handleSubmit}>
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/75">Customer Access</p>
+        <h2 className="text-2xl font-semibold">Create Company-Owned Customer</h2>
+        <p className="text-sm text-muted-foreground">Every customer belongs to one tenant and signs in from that tenant login page.</p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <span className="font-medium">Company</span>
           <select
-            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            className="field-input"
             value={form.company_id}
             onChange={(event) => setField("company_id", event.target.value)}
             required
@@ -102,7 +108,7 @@ export function CustomerCreateForm({
           <span className="font-medium">Representative</span>
           <input
             type="text"
-            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            className="field-input"
             value={form.customer_representative}
             onChange={(event) => setField("customer_representative", event.target.value)}
           />
@@ -111,7 +117,7 @@ export function CustomerCreateForm({
           <span className="font-medium">Email</span>
           <input
             type="email"
-            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            className="field-input"
             value={form.email}
             onChange={(event) => setField("email", event.target.value)}
             required
@@ -121,7 +127,7 @@ export function CustomerCreateForm({
           <span className="font-medium">Phone</span>
           <input
             type="text"
-            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            className="field-input"
             value={form.phone}
             onChange={(event) => setField("phone", event.target.value)}
           />
@@ -130,7 +136,7 @@ export function CustomerCreateForm({
           <span className="font-medium">Password</span>
           <input
             type="password"
-            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            className="field-input"
             value={form.password}
             onChange={(event) => setField("password", event.target.value)}
             required
@@ -141,7 +147,7 @@ export function CustomerCreateForm({
       <label className="space-y-2 text-sm">
         <span className="font-medium">Remark</span>
         <textarea
-          className="min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          className="min-h-28 w-full rounded-[22px] border border-input/80 bg-white/90 px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
           value={form.remark}
           onChange={(event) => setField("remark", event.target.value)}
         />
@@ -150,7 +156,11 @@ export function CustomerCreateForm({
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
 
-      <Button type="submit" className="h-11 w-full rounded-xl text-sm font-semibold sm:w-fit" disabled={loading}>
+      <Button
+        type="submit"
+        className="h-11 w-full rounded-2xl bg-linear-to-r from-sky-600 via-blue-600 to-indigo-600 text-sm font-semibold text-white shadow-[0_20px_30px_-20px_rgba(37,99,235,0.85)] sm:w-fit"
+        disabled={loading}
+      >
         {loading ? "Creating..." : "Create Customer"}
       </Button>
     </form>

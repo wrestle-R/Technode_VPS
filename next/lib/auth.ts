@@ -8,8 +8,9 @@ export type CustomerSession = {
   companyId: number
   companySlug: string
   companyName: string
-  companyLogoUrl: string
-  companyIconUrl: string
+  companyLoginImageUrl: string
+  companySidebarImageUrl: string
+  companyBrowserIconUrl: string
   email: string
   customerRepresentative: string
 }
@@ -31,8 +32,9 @@ export async function getCustomerSessionFromCookies() {
       typeof decoded.customerId !== "number" ||
       typeof decoded.companyId !== "number" ||
       !decoded.companySlug ||
-      !decoded.companyLogoUrl ||
-      !decoded.companyIconUrl
+      !decoded.companyLoginImageUrl ||
+      !decoded.companySidebarImageUrl ||
+      !decoded.companyBrowserIconUrl
     ) {
       return null
     }

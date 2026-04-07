@@ -129,6 +129,20 @@
   --shadow-xl: 0px 4px 12px 0px hsl(0, 0%, 0% / 0.08), 0px 8px 10px -1px hsl(0, 0%, 0% / 0.08);
   --shadow-2xl: 0px 4px 12px 0px hsl(0, 0%, 0% / 0.20);
   --tracking-normal: -0.01em;
+  --app-page-gradient: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(247, 251, 255, 1) 0%, rgba(248, 250, 252, 1) 100%);
+  --app-card-bg: color-mix(in oklab, var(--card) 92%, rgba(248, 250, 252, 1) 8%);
+  --app-card-border: color-mix(in oklab, var(--border) 84%, white 16%);
+  --app-card-shadow: 0 16px 36px -24px rgba(15, 23, 42, 0.34);
+  --app-topbar-bg: color-mix(in oklab, var(--card) 78%, rgba(248, 250, 252, 1) 22%);
+  --app-topbar-border: color-mix(in oklab, var(--border) 80%, white 20%);
+  --app-topbar-shadow: 0 18px 40px -34px rgba(15, 23, 42, 0.38);
+  --app-brand-gradient: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--primary) 86%, white 14%),
+    color-mix(in oklab, var(--primary) 62%, black 10%)
+  );
+  --app-brand-shadow: 0 14px 26px -18px color-mix(in oklab, var(--primary) 45%, transparent);
 }
 
 .dark {
@@ -184,6 +198,20 @@
   --shadow-lg: 0px 8px 16px 0px hsl(0, 0%, 0% / 0.40), 0px 4px 6px -1px hsl(0, 0%, 0% / 0.40);
   --shadow-xl: 0px 8px 16px 0px hsl(0, 0%, 0% / 0.40), 0px 8px 10px -1px hsl(0, 0%, 0% / 0.40);
   --shadow-2xl: 0px 8px 16px 0px hsl(0, 0%, 0% / 1.00);
+  --app-page-gradient: radial-gradient(circle at top, rgba(56, 189, 248, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 100%);
+  --app-card-bg: color-mix(in oklab, var(--card) 88%, rgba(15, 23, 42, 1) 12%);
+  --app-card-border: color-mix(in oklab, var(--border) 84%, rgba(255, 255, 255, 0.08) 16%);
+  --app-card-shadow: 0 20px 42px -28px rgba(0, 0, 0, 0.6);
+  --app-topbar-bg: color-mix(in oklab, var(--card) 78%, rgba(15, 23, 42, 1) 22%);
+  --app-topbar-border: color-mix(in oklab, var(--border) 82%, rgba(255, 255, 255, 0.08) 18%);
+  --app-topbar-shadow: 0 20px 42px -30px rgba(0, 0, 0, 0.58);
+  --app-brand-gradient: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--primary) 82%, white 18%),
+    color-mix(in oklab, var(--primary) 68%, black 8%)
+  );
+  --app-brand-shadow: 0 16px 28px -18px color-mix(in oklab, var(--primary) 48%, transparent);
 }
 
 @layer base {
@@ -201,9 +229,10 @@
   }
 }
 
+/* Clean Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 14px;
+  height: 14px;
 }
 
 ::-webkit-scrollbar-track {
@@ -211,12 +240,25 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 50% / 0.2);
-  border-radius: 999px;
+  background-color: var(--border);
+  border-radius: 9999px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease-in-out;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 50% / 0.4);
+  background-color: color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .card-glow {
@@ -240,4 +282,69 @@
 
 .card-glow:hover::before {
   opacity: 1;
+}
+
+.panel-surface {
+  position: relative;
+  border: 1px solid color-mix(in oklab, white 60%, transparent);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.84)),
+    linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.1));
+  box-shadow:
+    0 30px 80px -48px rgba(15, 23, 42, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(16px);
+}
+
+.app-page-surface {
+  background: var(--app-page-gradient);
+}
+
+.app-card-surface {
+  border: 1px solid var(--app-card-border);
+  background: var(--app-card-bg);
+  box-shadow: var(--app-card-shadow);
+}
+
+.app-topbar-surface {
+  border-bottom: 1px solid var(--app-topbar-border);
+  background: var(--app-topbar-bg);
+  box-shadow: var(--app-topbar-shadow);
+  backdrop-filter: blur(12px);
+}
+
+.app-brand-button {
+  background: var(--app-brand-gradient);
+  color: var(--primary-foreground);
+  box-shadow: var(--app-brand-shadow);
+}
+
+.app-brand-button:hover {
+  filter: brightness(1.02);
+}
+
+.panel-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), transparent 42%, rgba(99, 102, 241, 0.08));
+}
+
+.field-input {
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, var(--border) 85%, white 15%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field-input:focus {
+  border-color: color-mix(in oklab, var(--primary) 75%, white 25%);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent);
 }

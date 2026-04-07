@@ -1,6 +1,5 @@
 import Link from "next/link"
 
-import { getCompanyAssetUrl } from "@/lib/company-assets"
 import { prisma } from "@/lib/prisma"
 import { buildCompanyLoginUrl } from "@/lib/tenancy"
 import { CompaniesTable } from "./companies-table"
@@ -32,33 +31,31 @@ export default async function AdminCompaniesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Companies</h1>
-          <p className="text-sm text-muted-foreground">
-            Review tenants, open company login URLs, and manage company-linked customer accounts.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/75">Tenant Control</p>
+          <h1 className="mt-2 text-3xl font-semibold">Companies</h1>
         </div>
         <Link
           href="/admin/companies/create"
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+          className="inline-flex h-11 items-center justify-center rounded-2xl bg-linear-to-r from-sky-600 via-blue-600 to-indigo-600 px-5 text-sm font-semibold text-white shadow-[0_20px_32px_-20px_rgba(37,99,235,0.85)] transition hover:opacity-95"
         >
           Create Company
         </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <div className="panel-surface rounded-[28px] px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Total Companies</p>
           <p className="mt-1.5 text-xl font-semibold">{companies.length}</p>
         </div>
-        <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <div className="panel-surface rounded-[28px] px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Total Customers</p>
           <p className="mt-1.5 text-xl font-semibold">
             {companies.reduce((sum, company) => sum + company._count.customers, 0)}
           </p>
         </div>
-        <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <div className="panel-surface rounded-[28px] px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tenant Domains</p>
-          <p className="mt-1.5 text-sm text-muted-foreground">Uses slug.localhost:3000 locally and subdomains in production.</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">Technode works on the bare domain. Other companies use `slug.domain` in production and `slug.localhost` locally.</p>
         </div>
       </div>
 
@@ -67,7 +64,9 @@ export default async function AdminCompaniesPage() {
           company_id: company.company_id,
           name: company.name,
           slug: company.slug,
-          logo_url: getCompanyAssetUrl(company.logo_path),
+          login_image_url: `/uploads/${company.login_image_path}`,
+          sidebar_image_url: `/uploads/${company.sidebar_image_path}`,
+          browser_icon_url: `/uploads/${company.browser_icon_path}`,
           login_url: buildCompanyLoginUrl(company.slug),
           customer_count: company._count.customers,
           customers: company.customers,

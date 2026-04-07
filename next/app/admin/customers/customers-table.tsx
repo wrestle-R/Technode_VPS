@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Check, Copy, Pencil } from "lucide-react"
+import { Check, Pencil, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -95,142 +95,127 @@ export function CustomersTable({
     }
   }
 
-  async function copyText(value: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success(`${label} copied`)
-    } catch {
-      toast.error("Copy failed")
-    }
-  }
-
-  function CellWithCopy({ value, label }: { value: string | number | null; label: string }) {
+  if (rows.length === 0) {
     return (
-      <div className="flex items-center gap-2">
-        <span>{display(value)}</span>
-        <button
-          className="inline-flex items-center justify-center rounded border border-border p-1 text-muted-foreground hover:bg-muted"
-          onClick={() => copyText(String(display(value)), label)}
-          aria-label={`Copy ${label}`}
-          title={`Copy ${label}`}
-          type="button"
-        >
-          <Copy className="size-3.5" />
-        </button>
-      </div>
+      <section className="panel-surface rounded-[30px] p-8 text-center">
+        <p className="text-lg font-semibold">No customers found.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Create a company-owned customer to start using tenant logins.</p>
+      </section>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-      <table className="min-w-full divide-y divide-border text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-4 py-3 text-left font-medium">ID</th>
-            <th className="px-4 py-3 text-left font-medium">Company</th>
-            <th className="px-4 py-3 text-left font-medium">Representative</th>
-            <th className="px-4 py-3 text-left font-medium">Email</th>
-            <th className="px-4 py-3 text-left font-medium">Phone</th>
-            <th className="px-4 py-3 text-left font-medium">Password</th>
-            <th className="px-4 py-3 text-left font-medium">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows.map((customer) => (
-            <tr key={customer.customer_id}>
-              <td className="px-4 py-3"><CellWithCopy value={customer.customer_id} label="ID" /></td>
-              <td className="px-4 py-3">
-                {editingId === customer.customer_id ? (
-                  <select
-                    className="h-9 w-full rounded border border-input bg-background px-2"
-                    value={editForm.company_id}
-                    onChange={(event) => setEditForm((prev) => ({ ...prev, company_id: event.target.value }))}
-                  >
-                    {companies.map((company) => (
-                      <option key={company.company_id} value={company.company_id}>
-                        {company.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <CellWithCopy value={customer.company.name} label="Company" />
-                )}
-              </td>
-              <td className="px-4 py-3">
-                {editingId === customer.customer_id ? (
-                  <input
-                    className="h-9 w-full rounded border border-input bg-background px-2"
-                    value={editForm.customer_representative}
-                    onChange={(event) => setEditForm((prev) => ({ ...prev, customer_representative: event.target.value }))}
-                  />
-                ) : (
-                  <CellWithCopy value={customer.customer_representative} label="Representative" />
-                )}
-              </td>
-              <td className="px-4 py-3">
-                {editingId === customer.customer_id ? (
-                  <input
-                    className="h-9 w-full rounded border border-input bg-background px-2"
-                    value={editForm.email}
-                    onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
-                    type="email"
-                  />
-                ) : (
-                  <CellWithCopy value={customer.email} label="Email" />
-                )}
-              </td>
-              <td className="px-4 py-3">
-                {editingId === customer.customer_id ? (
-                  <input
-                    className="h-9 w-full rounded border border-input bg-background px-2"
-                    value={editForm.phone}
-                    onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
-                  />
-                ) : (
-                  <CellWithCopy value={customer.phone} label="Phone" />
-                )}
-              </td>
-              <td className="max-w-[240px] truncate px-4 py-3 font-mono text-xs" title={String(display(customer.password))}>
-                {editingId === customer.customer_id ? (
-                  <input
-                    className="h-9 w-full rounded border border-input bg-background px-2 font-mono"
-                    value={editForm.password}
-                    onChange={(event) => setEditForm((prev) => ({ ...prev, password: event.target.value }))}
-                    type="text"
-                  />
-                ) : (
-                  <CellWithCopy value={customer.password} label="Password" />
-                )}
-              </td>
-              <td className="px-4 py-3">
-                {editingId === customer.customer_id ? (
-                  <div className="flex items-center gap-2">
-                    <Button size="xs" onClick={() => saveEdit(customer.customer_id)} disabled={saving}>
-                      <Check className="mr-1 size-3.5" />
-                      Save
-                    </Button>
-                    <Button size="xs" variant="outline" onClick={cancelEdit} disabled={saving}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="xs" variant="outline" onClick={() => beginEdit(customer)}>
-                    <Pencil className="mr-1 size-3.5" />
-                    Edit
-                  </Button>
-                )}
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 ? (
+    <section className="panel-surface overflow-hidden rounded-[30px]">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-white/70 text-left text-xs uppercase tracking-[0.18em] text-muted-foreground">
             <tr>
-              <td className="px-4 py-5 text-muted-foreground" colSpan={7}>
-                No customers found.
-              </td>
+              <th className="px-4 py-3">ID</th>
+              <th className="px-4 py-3">Company</th>
+              <th className="px-4 py-3">Slug</th>
+              <th className="px-4 py-3">Representative</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Phone</th>
+              <th className="px-4 py-3">Password</th>
+              <th className="px-4 py-3">Actions</th>
             </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody className="bg-white/85">
+            {rows.map((customer) => {
+              const isEditing = editingId === customer.customer_id
+
+              return (
+                <tr key={customer.customer_id} className="border-t border-border/60 align-top">
+                  <td className="px-4 py-3 font-semibold">#{customer.customer_id}</td>
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <select
+                        className="field-input h-10 min-w-40"
+                        value={editForm.company_id}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, company_id: event.target.value }))}
+                      >
+                        {companies.map((company) => (
+                          <option key={company.company_id} value={company.company_id}>
+                            {company.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      customer.company.name
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">{customer.company.slug}</td>
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        className="field-input h-10 min-w-40"
+                        value={editForm.customer_representative}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, customer_representative: event.target.value }))}
+                      />
+                    ) : (
+                      <span>{display(customer.customer_representative)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        className="field-input h-10 min-w-52"
+                        value={editForm.email}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
+                        type="email"
+                      />
+                    ) : (
+                      <span>{display(customer.email)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        className="field-input h-10 min-w-40"
+                        value={editForm.phone}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
+                      />
+                    ) : (
+                      <span>{display(customer.phone)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        className="field-input h-10 min-w-44 font-mono"
+                        value={editForm.password}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, password: event.target.value }))}
+                        type="text"
+                      />
+                    ) : (
+                      <span className="font-mono text-xs">{display(customer.password)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => saveEdit(customer.customer_id)} disabled={saving} className="h-9 rounded-xl px-3 text-xs">
+                          <Check className="mr-1 size-4" />
+                          Save
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelEdit} disabled={saving} className="h-9 rounded-xl px-3 text-xs">
+                          <X className="mr-1 size-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => beginEdit(customer)} className="h-9 rounded-xl bg-white/80 px-3 text-xs">
+                        <Pencil className="mr-1 size-4" />
+                        Edit
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }

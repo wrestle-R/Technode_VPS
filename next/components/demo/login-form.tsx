@@ -10,8 +10,7 @@ export function LoginForm({
   company,
 }: {
   company: {
-    name: string
-    logoUrl: string
+    loginImageUrl: string
   }
 }) {
   const router = useRouter()
@@ -19,7 +18,7 @@ export function LoginForm({
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [logoSrc, setLogoSrc] = useState(company.logoUrl || "/logo.png")
+  const [logoSrc, setLogoSrc] = useState(company.loginImageUrl || "/logo.png")
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -63,23 +62,17 @@ export function LoginForm({
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -right-28 bottom-0 h-80 w-80 rounded-full bg-secondary blur-3xl" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-7 shadow-lg sm:p-9">
+    <div className="app-page-surface flex min-h-svh items-center justify-center px-4 py-10">
+      <div className="app-card-surface w-full max-w-md rounded-2xl p-7 sm:p-9">
         <div className="mb-8 text-center">
           <img
             src={logoSrc}
-            alt={`${company.name} logo`}
-            className="mx-auto mb-4 h-12 w-auto max-w-[200px] object-contain"
+            alt="Company logo"
+            className="mx-auto mb-5 h-14 w-auto max-w-[220px] object-contain"
             onError={() => setLogoSrc("/logo.png")}
           />
-          <p className="text-xs font-semibold tracking-[0.18em] text-primary/80">{company.name.toUpperCase()}</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in with your {company.name} customer account</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">Sign in</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Use your customer account credentials</p>
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -92,7 +85,7 @@ export function LoginForm({
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="field-input h-12"
               placeholder="you@technode.com"
               required
             />
@@ -107,7 +100,7 @@ export function LoginForm({
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="field-input h-12"
               placeholder="Enter password"
               required
             />
@@ -115,7 +108,11 @@ export function LoginForm({
 
           {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
-          <Button type="submit" className="h-11 w-full rounded-xl text-sm font-semibold" disabled={loading}>
+          <Button
+            type="submit"
+            className="app-brand-button h-12 w-full rounded-2xl text-sm font-semibold"
+            disabled={loading}
+          >
             {loading ? "Signing in..." : "Continue To Customer Dashboard"}
           </Button>
         </form>

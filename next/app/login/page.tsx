@@ -8,7 +8,7 @@ export async function generateMetadata() {
 
   return {
     title: company ? `${company.name} Login` : "Customer Login",
-    icons: company ? { icon: company.iconUrl } : undefined,
+    icons: company ? { icon: company.browserIconUrl } : undefined,
   }
 }
 
@@ -18,5 +18,5 @@ export default async function LoginPage() {
     notFound()
   }
 
-  return <LoginForm company={company} />
+  return <LoginForm company={{ loginImageUrl: company.loginImageUrl }} />
 }

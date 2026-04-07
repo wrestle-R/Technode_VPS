@@ -6,8 +6,8 @@ type UserData = {
   customerRepresentative: string
   email: string
   companyName: string
-  companyLogoUrl: string
-  companyIconUrl: string
+  companySidebarImageUrl: string
+  companyBrowserIconUrl: string
 }
 
 type UserContextType = {

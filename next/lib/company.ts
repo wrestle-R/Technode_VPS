@@ -8,10 +8,12 @@ export type CompanyBranding = {
   companyId: number
   name: string
   slug: string
-  logoPath: string
-  iconPath: string
-  logoUrl: string
-  iconUrl: string
+  loginImagePath: string
+  sidebarImagePath: string
+  browserIconPath: string
+  loginImageUrl: string
+  sidebarImageUrl: string
+  browserIconUrl: string
   loginUrl: string
 }
 
@@ -19,17 +21,20 @@ function mapCompanyBranding(company: {
   company_id: number
   name: string
   slug: string
-  logo_path: string
-  icon_path: string
+  login_image_path: string
+  sidebar_image_path: string
+  browser_icon_path: string
 }) {
   return {
     companyId: company.company_id,
     name: company.name,
     slug: company.slug,
-    logoPath: company.logo_path,
-    iconPath: company.icon_path,
-    logoUrl: getCompanyAssetUrl(company.logo_path),
-    iconUrl: getCompanyAssetUrl(company.icon_path),
+    loginImagePath: company.login_image_path,
+    sidebarImagePath: company.sidebar_image_path,
+    browserIconPath: company.browser_icon_path,
+    loginImageUrl: getCompanyAssetUrl(company.login_image_path),
+    sidebarImageUrl: getCompanyAssetUrl(company.sidebar_image_path),
+    browserIconUrl: getCompanyAssetUrl(company.browser_icon_path),
     loginUrl: buildCompanyLoginUrl(company.slug),
   } satisfies CompanyBranding
 }
@@ -41,8 +46,9 @@ export async function getCompanyBySlug(slug: string) {
       company_id: true,
       name: true,
       slug: true,
-      logo_path: true,
-      icon_path: true,
+      login_image_path: true,
+      sidebar_image_path: true,
+      browser_icon_path: true,
     },
   })
 
@@ -56,8 +62,9 @@ export async function getCompanyById(companyId: number) {
       company_id: true,
       name: true,
       slug: true,
-      logo_path: true,
-      icon_path: true,
+      login_image_path: true,
+      sidebar_image_path: true,
+      browser_icon_path: true,
     },
   })
 

@@ -23,8 +23,9 @@ export default async function AdminCompanyEditPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Edit Company</h1>
-        <p className="text-sm text-muted-foreground">Update slug, branding uploads, and white-label settings.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/75">Tenant Branding</p>
+        <h1 className="mt-2 text-3xl font-semibold">Edit Company</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Update slug, login artwork, sidebar artwork, and browser icon for this tenant.</p>
       </div>
 
       <CompanyForm
@@ -33,8 +34,9 @@ export default async function AdminCompanyEditPage({
           company_id: company.company_id,
           name: company.name,
           slug: company.slug,
-          logo_url: getCompanyAssetUrl(company.logo_path),
-          icon_url: getCompanyAssetUrl(company.icon_path),
+          login_image_url: getCompanyAssetUrl(company.login_image_path),
+          sidebar_image_url: getCompanyAssetUrl(company.sidebar_image_path),
+          browser_icon_url: getCompanyAssetUrl(company.browser_icon_path),
         }}
       />
     </div>

@@ -28,6 +28,17 @@ export function getCompanyAssetRelativePath(slug: string, filename: string) {
   return path.posix.join("companies", slug, filename)
 }
 
+export function getCompanyAssetFilename(kind: "loginImage" | "sidebarImage" | "browserIcon", extension: string) {
+  switch (kind) {
+    case "loginImage":
+      return `login${extension}`
+    case "sidebarImage":
+      return `sidebar${extension}`
+    case "browserIcon":
+      return `browser-icon${extension}`
+  }
+}
+
 export function getCompanyAssetAbsolutePath(relativePath: string) {
   return path.join(getUploadsRoot(), relativePath)
 }
@@ -62,7 +73,7 @@ export async function saveCompanyAsset({
 }: {
   slug: string
   file: File
-  kind: "logo" | "icon"
+  kind: "loginImage" | "sidebarImage" | "browserIcon"
 }) {
   const extension = ALLOWED_IMAGE_TYPES.get(file.type)
   if (!extension) {
@@ -78,7 +89,7 @@ export async function saveCompanyAsset({
     throw new Error("Uploaded file is too large.")
   }
 
-  const relativePath = getCompanyAssetRelativePath(slug, `${kind}${extension}`)
+  const relativePath = getCompanyAssetRelativePath(slug, getCompanyAssetFilename(kind, extension))
   const absolutePath = getCompanyAssetAbsolutePath(relativePath)
   await ensureDirectoryExists(path.dirname(absolutePath))
   await writeFile(absolutePath, buffer)

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Home, Building2, Users, LogOut, ChevronRight, Gauge } from "lucide-react";
 
@@ -114,26 +114,26 @@ const navGroups: NavGroup[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { state } = useSidebar();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const { state } = useSidebar();
 
-  const isActive = (url: string, hasChildren = false) => {
-    if (typeof window !== "undefined") {
-      const currentUrl = `${pathname}${window.location.search}`;
+    const isActive = (url: string, hasChildren = false) => {
+      const search = searchParams.toString();
+      const currentUrl = search ? `${pathname}?${search}` : pathname;
       if (currentUrl === url) return true;
-    }
-    if (pathname === url) return true;
-    if (hasChildren) return pathname.startsWith(url.split("?")[0] + "/") || pathname === url.split("?")[0];
-    return false;
-  };
+      if (pathname === url) return true;
+      if (hasChildren) return pathname.startsWith(url.split("?")[0] + "/") || pathname === url.split("?")[0];
+      return false;
+    };
 
-  const isGroupOpen = (item: NavItem) => {
-    if (isActive(item.href, true)) return true;
-    if (item.subItems) {
-      return item.subItems.some((sub) => pathname === sub.href);
-    }
-    return false;
-  };
+    const isGroupOpen = (item: NavItem) => {
+      if (isActive(item.href, true)) return true;
+      if (item.subItems) {
+        return item.subItems.some((sub) => isActive(sub.href));
+      }
+      return false;
+    };
 
   const handleParentClick = (item: NavItem) => {
     if (item.subItems && item.subItems.length > 0) {
@@ -153,24 +153,24 @@ export function AdminSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="[&_[data-sidebar=sidebar]]:scrollbar-thin [&_[data-sidebar=sidebar]]:scrollbar-track-transparent [&_[data-sidebar=sidebar]]:scrollbar-thumb-border/40 hover:[&_[data-sidebar=sidebar]]:scrollbar-thumb-border/60 [&_[data-sidebar=sidebar]]:scrollbar-thumb-rounded-full"
+      className="group/sidebar"
     >
       <SidebarContent>
         <SidebarGroup>
           {state === "expanded" && (
-            <Link href="/admin/dashboard" className="flex items-center justify-center">
+            <Link href="/admin/dashboard" className="mx-3 mt-3 rounded-[26px] border border-white/10 bg-white/8 px-4 py-5 text-center shadow-[0_18px_40px_-30px_rgba(15,23,42,0.85)]">
               <div className="text-center">
-                <p className="pt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-sky-100/75">
                   Control Panel
                 </p>
-                <p className="mt-1 text-xl font-semibold tracking-[0.08em] text-white">ADMIN</p>
+                <p className="mt-2 text-xl font-semibold tracking-[0.12em] text-white">ADMIN</p>
               </div>
             </Link>
           )}
         </SidebarGroup>
         {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100/55">
               {group.label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -193,7 +193,7 @@ export function AdminSidebar() {
                               "cursor-pointer",
                               state === "expanded" &&
                                 isActive(item.href, true) &&
-                                "border-l-4 border-primary bg-primary/10 pl-2 font-medium"
+                                "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
                             )}
                           >
                             <item.icon />
@@ -207,12 +207,12 @@ export function AdminSidebar() {
                               <SidebarMenuSubItem key={sub.href}>
                                 <SidebarMenuSubButton
                                   href={sub.href}
-                                  isActive={pathname === sub.href}
-                                  className={cn(
-                                    "transition-colors",
-                                    pathname === sub.href
-                                      ? "bg-primary/10 text-primary font-medium before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
-                                      : "hover:bg-muted/50"
+                                    isActive={isActive(sub.href)}
+                                    className={cn(
+                                      "transition-colors",
+                                      isActive(sub.href)
+                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                      : "hover:bg-white/8"
                                   )}
                                 >
                                   {sub.title}
@@ -232,7 +232,7 @@ export function AdminSidebar() {
                         className={cn(
                           state === "expanded" &&
                             isActive(item.href, true) &&
-                            "border-l-4 border-primary bg-primary/10 pl-2 font-medium"
+                            "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
                         )}
                       >
                         <item.icon />
@@ -254,7 +254,7 @@ export function AdminSidebar() {
             <SidebarMenuButton
               tooltip="Sign Out"
               onClick={handleLogout}
-              className="mb-2 w-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              className="mb-2 w-full text-rose-200 hover:bg-rose-500/12 hover:text-white"
             >
               <LogOut className={cn("h-4 w-4", state === "expanded" && "ml-2")} />
               {state === "expanded" && <span className="font-medium">Sign Out</span>}
