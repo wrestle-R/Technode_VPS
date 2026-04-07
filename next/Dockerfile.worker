@@ -1,0 +1,15 @@
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
+
+COPY scripts ./scripts
+COPY lib ./lib
+COPY prisma ./prisma
+COPY tsconfig.json ./tsconfig.json
+COPY next-env.d.ts ./next-env.d.ts
+
+# Generate Prisma client before running the long-lived worker process.
+CMD ["sh", "-c", "npm run prisma:generate && npm run ems:mqtt"]
