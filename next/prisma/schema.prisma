@@ -7,16 +7,33 @@ datasource db {
   url      = env("PRISMA_DATABASE_URL")
 }
 
+model Company {
+  company_id            Int      @id @default(autoincrement())
+  name                  String   @db.VarChar(100)
+  slug                  String   @unique @db.VarChar(100)
+  logo_path             String   @db.VarChar(255)
+  icon_path             String   @db.VarChar(255)
+  white_label_settings  Json     @default("{}")
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+  customers             Customer[]
+
+  @@map("companies")
+}
+
 model Customer {
-  customer_id               Int     @id @default(autoincrement())
-  company_name              String? @db.VarChar(100)
-  customer_representative   String? @db.VarChar(100)
-  email                     String? @db.VarChar(100)
-  phone                     String? @db.VarChar(20)
-  remark                    String? @db.VarChar(255)
-  password                  String? @db.VarChar(255)
+  customer_id               Int      @id @default(autoincrement())
+  company_id                Int
+  customer_representative   String?  @db.VarChar(100)
+  email                     String   @db.VarChar(100)
+  phone                     String?  @db.VarChar(20)
+  remark                    String?  @db.VarChar(255)
+  password                  String?  @db.VarChar(255)
+  company                   Company  @relation(fields: [company_id], references: [company_id], onDelete: Cascade)
   ems_units                 EmsUnit[]
 
+  @@unique([company_id, email])
+  @@index([company_id])
   @@map("customers")
 }
 

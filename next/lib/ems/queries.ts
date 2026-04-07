@@ -30,7 +30,12 @@ type UnitWithLogs = Prisma.EmsUnitGetPayload<{
     customer: {
       select: {
         customer_id: true
-        company_name: true
+        customer_representative: true
+        company: {
+          select: {
+            name: true
+          }
+        }
       }
     }
     logs: true
@@ -87,7 +92,7 @@ function formatUnit(unit: UnitWithLogs) {
     id: unit.id.toString(),
     unitId: unit.unit_id,
     customerId: unit.customer_id,
-    customerName: unit.customer?.company_name ?? null,
+    customerName: unit.customer?.company.name ?? unit.customer?.customer_representative ?? null,
     locationLabel: unit.location_label,
     latitude: asNumber(unit.latitude),
     longitude: asNumber(unit.longitude),
@@ -115,7 +120,12 @@ export async function getAdminEmsUnits() {
       customer: {
         select: {
           customer_id: true,
-          company_name: true,
+          customer_representative: true,
+          company: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
       logs: {
@@ -156,7 +166,12 @@ export async function getAdminEmsUnitsFiltered({
       customer: {
         select: {
           customer_id: true,
-          company_name: true,
+          customer_representative: true,
+          company: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
       logs: {
@@ -198,10 +213,15 @@ export async function getAdminEmsCustomersWithUnits() {
     },
     select: {
       customer_id: true,
-      company_name: true,
+      customer_representative: true,
+      company: {
+        select: {
+          name: true,
+        },
+      },
     },
     orderBy: {
-      company_name: "asc",
+      customer_id: "asc",
     },
   })
 
@@ -213,7 +233,8 @@ export async function getAdminEmsCustomersWithUnits() {
 
   return customers.map((customer) => ({
     customerId: customer.customer_id,
-    companyName: customer.company_name ?? `Customer #${customer.customer_id}`,
+    companyName: customer.company.name,
+    customerName: customer.customer_representative ?? `Customer #${customer.customer_id}`,
     unitCount: counts.get(customer.customer_id) ?? 0,
   }))
 }
@@ -225,7 +246,12 @@ export async function getAdminEmsUnit(unitId: string) {
       customer: {
         select: {
           customer_id: true,
-          company_name: true,
+          customer_representative: true,
+          company: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
       logs: {

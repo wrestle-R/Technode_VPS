@@ -9,10 +9,11 @@
     "start": "next start",
     "ems:mqtt": "tsx scripts/ems-mqtt-worker.ts",
     "lint": "eslint",
-    "prisma:prepare": "prisma generate && prisma migrate deploy",
+    "prisma:prepare": "prisma generate && prisma migrate deploy && npm run bootstrap:tenant",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "bootstrap:tenant": "tsx scripts/bootstrap-default-company.ts",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },

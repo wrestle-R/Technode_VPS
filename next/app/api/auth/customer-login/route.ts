@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { resolveRequestCompany } from "@/lib/company"
 import { createCustomerSessionValue } from "@/lib/auth"
 import { corsPreflight, withCors } from "@/lib/cors"
 import { prisma } from "@/lib/prisma"
@@ -15,6 +16,11 @@ export async function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const company = await resolveRequestCompany()
+  if (!company) {
+    return withCors(request, NextResponse.json({ error: "Unknown company login URL." }, { status: 404 }))
+  }
+
   const body = (await request.json()) as LoginBody
   const email = body.email?.trim().toLowerCase()
   const password = body.password ?? ""
@@ -24,7 +30,10 @@ export async function POST(request: Request) {
   }
 
   const customer = await prisma.customer.findFirst({
-    where: { email },
+    where: {
+      company_id: company.companyId,
+      email,
+    },
   })
 
   if (!customer?.password) {
@@ -39,6 +48,11 @@ export async function POST(request: Request) {
     ok: true,
     customer: {
       customerId: customer.customer_id,
+      companyId: company.companyId,
+      companySlug: company.slug,
+      companyName: company.name,
+      companyLogoUrl: company.logoUrl,
+      companyIconUrl: company.iconUrl,
       email: customer.email,
       customerRepresentative: customer.customer_representative,
     },
@@ -46,6 +60,11 @@ export async function POST(request: Request) {
 
   response.cookies.set(CUSTOMER_SESSION_COOKIE, createCustomerSessionValue({
     customerId: customer.customer_id,
+    companyId: company.companyId,
+    companySlug: company.slug,
+    companyName: company.name,
+    companyLogoUrl: company.logoUrl,
+    companyIconUrl: company.iconUrl,
     email: customer.email ?? "",
     customerRepresentative: customer.customer_representative ?? "Customer",
   }), {

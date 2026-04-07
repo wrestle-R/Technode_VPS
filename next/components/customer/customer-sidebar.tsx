@@ -44,7 +44,13 @@ import {
 } from "@/components/ui/sidebar";
 import { SidebarDeviceSkeleton } from "@/components/customer/ems/page-skeleton";
 
-export function CustomerSidebar() {
+export function CustomerSidebar({
+  companyLogoUrl,
+  companyName,
+}: {
+  companyLogoUrl: string
+  companyName: string
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearUser } = useUser();
@@ -80,12 +86,13 @@ export function CustomerSidebar() {
               className="mb-4 flex items-center justify-center"
             >
               <Image
-                src="/logo.png"
-                alt="Technode IoT"
+                src={companyLogoUrl}
+                alt={companyName}
                 width={140}
                 height={60}
                 className="mr-12 mt-2 h-10 w-auto object-contain"
                 priority
+                unoptimized
               />
             </Link>
           )}

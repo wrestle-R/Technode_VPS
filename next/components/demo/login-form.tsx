@@ -7,7 +7,14 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 
-export function LoginForm() {
+export function LoginForm({
+  company,
+}: {
+  company: {
+    name: string
+    logoUrl: string
+  }
+}) {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -65,16 +72,17 @@ export function LoginForm() {
       <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-7 shadow-lg sm:p-9">
         <div className="mb-8 text-center">
           <Image
-            src="/logo.png"
-            alt="Technode"
+            src={company.logoUrl}
+            alt={company.name}
             width={180}
             height={44}
             className="mx-auto mb-4 h-11 w-auto"
             priority
+            unoptimized
           />
-          <p className="text-xs font-semibold tracking-[0.14em] text-primary">TECHNODE VPS</p>
+          <p className="text-xs font-semibold tracking-[0.14em] text-primary">{company.name.toUpperCase()}</p>
           <h1 className="mt-2 text-2xl font-semibold">Sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in with your customer account</p>
+          <p className="mt-1 text-sm text-muted-foreground">Sign in with your {company.name} customer account</p>
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>

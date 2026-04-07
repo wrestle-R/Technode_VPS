@@ -8,10 +8,15 @@ import { Button } from "@/components/ui/button"
 
 type CustomerRow = {
   customer_id: number
-  company_name: string | null
+  company_id: number
+  company: {
+    name: string
+    slug: string
+  }
   customer_representative: string | null
   email: string | null
   phone: string | null
+  remark: string | null
   password: string | null
 }
 
@@ -19,12 +24,18 @@ function display(value: string | number | null) {
   return value ?? "-"
 }
 
-export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
+export function CustomersTable({
+  customers,
+  companies,
+}: {
+  customers: CustomerRow[]
+  companies: { company_id: number; name: string }[]
+}) {
   const [rows, setRows] = useState(customers)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [editForm, setEditForm] = useState({
-    company_name: "",
+    company_id: "",
     customer_representative: "",
     email: "",
     phone: "",
@@ -34,7 +45,7 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
   function beginEdit(customer: CustomerRow) {
     setEditingId(customer.customer_id)
     setEditForm({
-      company_name: customer.company_name ?? "",
+      company_id: String(customer.company_id),
       customer_representative: customer.customer_representative ?? "",
       email: customer.email ?? "",
       phone: customer.phone ?? "",
@@ -45,7 +56,7 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
   function cancelEdit() {
     setEditingId(null)
     setEditForm({
-      company_name: "",
+      company_id: "",
       customer_representative: "",
       email: "",
       phone: "",
@@ -130,13 +141,19 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
               <td className="px-4 py-3"><CellWithCopy value={customer.customer_id} label="ID" /></td>
               <td className="px-4 py-3">
                 {editingId === customer.customer_id ? (
-                  <input
+                  <select
                     className="h-9 w-full rounded border border-input bg-background px-2"
-                    value={editForm.company_name}
-                    onChange={(event) => setEditForm((prev) => ({ ...prev, company_name: event.target.value }))}
-                  />
+                    value={editForm.company_id}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, company_id: event.target.value }))}
+                  >
+                    {companies.map((company) => (
+                      <option key={company.company_id} value={company.company_id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
-                  <CellWithCopy value={customer.company_name} label="Company" />
+                  <CellWithCopy value={customer.company.name} label="Company" />
                 )}
               </td>
               <td className="px-4 py-3">

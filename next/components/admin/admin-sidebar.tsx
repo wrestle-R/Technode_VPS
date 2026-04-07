@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Home, Users, LogOut, ChevronRight, Gauge } from "lucide-react";
+import { Home, Building2, Users, LogOut, ChevronRight, Gauge } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -54,6 +54,21 @@ const navGroups: NavGroup[] = [
         title: "Dashboard",
         href: "/admin/dashboard",
         icon: Home,
+      },
+      {
+        title: "Companies",
+        href: "/admin/companies",
+        icon: Building2,
+        subItems: [
+          {
+            title: "All Companies",
+            href: "/admin/companies",
+          },
+          {
+            title: "Create Company",
+            href: "/admin/companies/create",
+          },
+        ],
       },
       {
         title: "Customers",

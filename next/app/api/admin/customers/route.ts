@@ -1,21 +1,15 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
+import { hasAdminSession } from "@/lib/admin-auth"
 import { prisma } from "@/lib/prisma"
-import { ADMIN_SESSION_COOKIE } from "@/lib/session-cookies"
 
 type CreateCustomerBody = {
-  company_name?: string
+  company_id?: number
   customer_representative?: string
   email?: string
   phone?: string
   remark?: string
   password?: string
-}
-
-async function hasAdminSession() {
-  const store = await cookies()
-  return store.get(ADMIN_SESSION_COOKIE)?.value === "1"
 }
 
 export async function GET() {
@@ -27,7 +21,13 @@ export async function GET() {
     orderBy: { customer_id: "asc" },
     select: {
       customer_id: true,
-      company_name: true,
+      company_id: true,
+      company: {
+        select: {
+          name: true,
+          slug: true,
+        },
+      },
       customer_representative: true,
       email: true,
       phone: true,
@@ -47,10 +47,11 @@ export async function POST(request: Request) {
 
   const email = body.email?.trim().toLowerCase()
   const password = body.password ?? ""
+  const companyId = Number(body.company_id)
 
-  if (!email || !password) {
+  if (!email || !password || Number.isNaN(companyId)) {
     return NextResponse.json(
-      { error: "email and password are required." },
+      { error: "company_id, email and password are required." },
       { status: 400 }
     )
   }
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
   try {
     const customer = await prisma.customer.create({
       data: {
-        company_name: body.company_name?.trim() || null,
+        company_id: companyId,
         customer_representative: body.customer_representative?.trim() || null,
         email,
         phone: body.phone?.trim() || null,
@@ -67,7 +68,13 @@ export async function POST(request: Request) {
       },
       select: {
         customer_id: true,
-        company_name: true,
+        company_id: true,
+        company: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
         customer_representative: true,
         email: true,
         phone: true,

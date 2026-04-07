@@ -101,6 +101,7 @@ export default async function AdminEmsPage({
             >
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Customer</p>
               <p className="mt-1 text-xl font-semibold">{customer.companyName}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{customer.customerName}</p>
               <p className="mt-3 text-sm text-muted-foreground">Customer ID: {customer.customerId}</p>
               <p className="mt-1 text-sm font-medium">Assigned EMS units: {customer.unitCount}</p>
             </Link>

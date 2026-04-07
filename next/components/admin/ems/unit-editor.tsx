@@ -10,7 +10,11 @@ import type { EmsFieldTemplateEntry, EmsRtuOverrides } from "@/lib/ems/types"
 
 type CustomerOption = {
   customer_id: number
-  company_name: string | null
+  customer_representative: string | null
+  email: string
+  company: {
+    name: string
+  }
 }
 
 type MetricRow = {
@@ -183,7 +187,7 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
                   <option value="">Unassigned</option>
                   {customers.map((customer) => (
                     <option key={customer.customer_id} value={customer.customer_id}>
-                      {customer.company_name ?? `Customer #${customer.customer_id}`}
+                      {customer.company.name} - {customer.customer_representative ?? customer.email}
                     </option>
                   ))}
                 </select>

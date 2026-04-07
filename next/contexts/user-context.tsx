@@ -5,6 +5,9 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 type UserData = {
   customerRepresentative: string
   email: string
+  companyName: string
+  companyLogoUrl: string
+  companyIconUrl: string
 }
 
 type UserContextType = {
@@ -15,8 +18,14 @@ type UserContextType = {
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
-export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<UserData | null>(null)
+export function UserProvider({
+  children,
+  initialUser = null,
+}: {
+  children: ReactNode
+  initialUser?: UserData | null
+}) {
+  const [user, setUserState] = useState<UserData | null>(initialUser)
 
   const value = useMemo(
     () => ({

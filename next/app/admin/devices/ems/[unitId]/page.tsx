@@ -18,7 +18,13 @@ export default async function AdminEmsUnitPage({
       orderBy: { customer_id: "asc" },
       select: {
         customer_id: true,
-        company_name: true,
+        customer_representative: true,
+        email: true,
+        company: {
+          select: {
+            name: true,
+          },
+        },
       },
     }),
   ])
