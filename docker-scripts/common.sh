@@ -55,6 +55,33 @@ require_docker() {
   fi
 }
 
+require_dockerhub_namespace() {
+  local namespace="${1:-}"
+  if [[ -z "$namespace" ]]; then
+    error "Docker Hub namespace is required"
+    error "Pass it as the first argument or set DOCKERHUB_NAMESPACE in docker-scripts/.env"
+    exit 1
+  fi
+}
+
+remote_image_ref() {
+  local namespace="$1"
+  local repository="$2"
+  local tag="$3"
+  printf '%s/%s:%s' "$namespace" "$repository" "$tag"
+}
+
+tag_and_push_image() {
+  local local_image="$1"
+  local remote_image="$2"
+
+  log "Tagging $local_image as $remote_image"
+  docker tag "$local_image" "$remote_image"
+
+  log "Pushing $remote_image"
+  docker push "$remote_image"
+}
+
 container_exists() {
   docker ps -a --format '{{.Names}}' | grep -Fxq "$1"
 }
