@@ -158,14 +158,12 @@ export function AdminSidebar() {
       <SidebarContent>
         <SidebarGroup>
           {state === "expanded" && (
-            <Link href="/admin/dashboard" className="mb-4 flex items-center justify-center">
-              <div className="rounded-2xl bg-primary px-5 py-3 text-center shadow-lg shadow-primary/20">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-foreground/75">
+            <Link href="/admin/dashboard" className="flex items-center justify-center">
+              <div className="text-center">
+                <p className="pt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Control Panel
                 </p>
-                <p className="mt-1 text-2xl font-black tracking-[0.16em] text-primary-foreground">
-                  ADMIN
-                </p>
+                <p className="mt-1 text-xl font-semibold tracking-[0.08em] text-white">ADMIN</p>
               </div>
             </Link>
           )}

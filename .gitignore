@@ -1,0 +1,45 @@
+# ----------------------------
+# Repository-wide ignore rules
+# ----------------------------
+
+# Node / Next.js dependencies and build output
+next/node_modules/
+next/.pnp
+next/.pnp.*
+next/.yarn/*
+!next/.yarn/patches
+!next/.yarn/plugins
+!next/.yarn/releases
+!next/.yarn/versions
+next/.next/
+next/out/
+next/build/
+next/coverage/
+next/*.tsbuildinfo
+
+# Python cache / virtual environments / build artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+**/build/
+**/dist/
+
+# Logs and misc OS files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+
+# Uploaded/generated files
+/uploads/
+/next/uploads/
+
+# NOTE: .env files are intentionally NOT ignored per request.
