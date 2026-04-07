@@ -33,7 +33,6 @@ export default async function AdminCompanyEditPage({
           company_id: company.company_id,
           name: company.name,
           slug: company.slug,
-          white_label_settings: JSON.stringify(company.white_label_settings, null, 2),
           logo_url: getCompanyAssetUrl(company.logo_path),
           icon_url: getCompanyAssetUrl(company.icon_path),
         }}

@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { Home, Building2, Users, LogOut, ChevronRight, Gauge } from "lucide-react";
 
@@ -160,14 +159,14 @@ export function AdminSidebar() {
         <SidebarGroup>
           {state === "expanded" && (
             <Link href="/admin/dashboard" className="mb-4 flex items-center justify-center">
-              <Image
-                src="/logo.png"
-                alt="Technode IoT"
-                width={140}
-                height={40}
-                className="h-10 w-auto object-contain"
-                priority
-              />
+              <div className="rounded-2xl bg-primary px-5 py-3 text-center shadow-lg shadow-primary/20">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-foreground/75">
+                  Control Panel
+                </p>
+                <p className="mt-1 text-2xl font-black tracking-[0.16em] text-primary-foreground">
+                  ADMIN
+                </p>
+              </div>
             </Link>
           )}
         </SidebarGroup>

@@ -9,7 +9,6 @@ CREATE TABLE "companies" (
     "slug" VARCHAR(100) NOT NULL,
     "logo_path" VARCHAR(255) NOT NULL,
     "icon_path" VARCHAR(255) NOT NULL,
-    "white_label_settings" JSONB NOT NULL DEFAULT '{}'::jsonb,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -64,11 +63,3 @@ CREATE TABLE "ems_logs" (
 
 CREATE INDEX "ems_logs_ems_unit_id_device_timestamp_idx" ON "ems_logs"("ems_unit_id", "device_timestamp" DESC);
 CREATE INDEX "ems_logs_created_at_idx" ON "ems_logs"("created_at");
-
-INSERT INTO "companies" ("name", "slug", "logo_path", "icon_path")
-VALUES ('Technode', 'technode', 'companies/technode/logo.png', 'companies/technode/icon.png');
-
-INSERT INTO "customers" ("company_id", "customer_representative", "email", "phone", "remark", "password")
-SELECT "company_id", 'Russel', 'russ@gmail.com', NULL, 'Seeded default customer', 'russ123'
-FROM "companies"
-WHERE "slug" = 'technode';

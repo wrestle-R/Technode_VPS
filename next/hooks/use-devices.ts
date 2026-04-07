@@ -8,6 +8,7 @@ type Device = {
 
 type Unit = {
   unitId: string
+  deviceType: "ems" | "other"
   status: string
   locationLabel?: string | null
   slaveCount: number
@@ -54,6 +55,7 @@ export function useDevices(enabled = true) {
           setUnits(
             (data.units ?? []).map((unit) => ({
               unitId: unit.unitId,
+              deviceType: "ems",
               status: unit.status,
               locationLabel: unit.locationLabel ?? null,
               slaveCount: unit.slaveCount,

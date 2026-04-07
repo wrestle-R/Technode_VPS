@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -20,6 +19,7 @@ export function LoginForm({
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [logoSrc, setLogoSrc] = useState(company.logoUrl || "/logo.png")
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -71,17 +71,14 @@ export function LoginForm({
 
       <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-7 shadow-lg sm:p-9">
         <div className="mb-8 text-center">
-          <Image
-            src={company.logoUrl}
-            alt={company.name}
-            width={180}
-            height={44}
-            className="mx-auto mb-4 h-11 w-auto"
-            priority
-            unoptimized
+          <img
+            src={logoSrc}
+            alt={`${company.name} logo`}
+            className="mx-auto mb-4 h-12 w-auto max-w-[200px] object-contain"
+            onError={() => setLogoSrc("/logo.png")}
           />
-          <p className="text-xs font-semibold tracking-[0.14em] text-primary">{company.name.toUpperCase()}</p>
-          <h1 className="mt-2 text-2xl font-semibold">Sign in</h1>
+          <p className="text-xs font-semibold tracking-[0.18em] text-primary/80">{company.name.toUpperCase()}</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in with your {company.name} customer account</p>
         </div>
 

@@ -1,4 +1,5 @@
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"])
+export const ROOT_COMPANY_SLUG = "technode"
 
 function stripPort(host: string) {
   return host.split(":")[0]?.toLowerCase() ?? ""
@@ -35,7 +36,7 @@ export function getCompanySlugFromHostname(hostname: string | null) {
   }
 
   if (isLocalHostname(hostname)) {
-    return null
+    return ROOT_COMPANY_SLUG
   }
 
   if (hostname.endsWith(".localhost")) {
@@ -45,7 +46,7 @@ export function getCompanySlugFromHostname(hostname: string | null) {
 
   const baseHostname = getBaseHostname()
   if (hostname === baseHostname || isLocalHostname(baseHostname)) {
-    return null
+    return ROOT_COMPANY_SLUG
   }
 
   if (!hostname.endsWith(`.${baseHostname}`)) {
@@ -64,8 +65,16 @@ export function buildCompanyLoginUrl(slug: string) {
   const baseUrl = getBaseAppUrl()
 
   if (isLocalHostname(baseUrl.hostname)) {
+    if (slug === ROOT_COMPANY_SLUG) {
+      return `${baseUrl.protocol}//localhost${baseUrl.port ? `:${baseUrl.port}` : ""}/login`
+    }
+
     const host = `${slug}.localhost${baseUrl.port ? `:${baseUrl.port}` : ""}`
     return `${baseUrl.protocol}//${host}/login`
+  }
+
+  if (slug === ROOT_COMPANY_SLUG) {
+    return `${baseUrl.protocol}//${baseUrl.host}/login`
   }
 
   return `${baseUrl.protocol}//${slug}.${baseUrl.host}/login`

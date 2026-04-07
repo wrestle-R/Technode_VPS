@@ -5,14 +5,6 @@ import { getCompanyAssetUrl, saveCompanyAsset } from "@/lib/company-assets"
 import { prisma } from "@/lib/prisma"
 import { buildCompanyLoginUrl } from "@/lib/tenancy"
 
-function parseWhiteLabelSettings(raw: FormDataEntryValue | null) {
-  if (typeof raw !== "string" || !raw.trim()) {
-    return {}
-  }
-
-  return JSON.parse(raw)
-}
-
 function getStringField(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : ""
 }
@@ -27,7 +19,6 @@ function serializeCompany(company: {
   slug: string
   logo_path: string
   icon_path: string
-  white_label_settings: unknown
 }) {
   return {
     company_id: company.company_id,
@@ -38,7 +29,6 @@ function serializeCompany(company: {
     logo_url: getCompanyAssetUrl(company.logo_path),
     icon_url: getCompanyAssetUrl(company.icon_path),
     login_url: buildCompanyLoginUrl(company.slug),
-    white_label_settings: company.white_label_settings,
   }
 }
 
@@ -77,8 +67,6 @@ export async function POST(request: Request) {
     const slug = getStringField(formData.get("slug")).toLowerCase()
     const logo = getFileField(formData.get("logo"))
     const icon = getFileField(formData.get("icon"))
-    const whiteLabelSettings = parseWhiteLabelSettings(formData.get("white_label_settings"))
-
     if (!name || !slug || !logo || !icon) {
       return NextResponse.json(
         { error: "name, slug, logo, and icon are required." },
@@ -97,7 +85,6 @@ export async function POST(request: Request) {
         slug,
         logo_path: logoPath,
         icon_path: iconPath,
-        white_label_settings: whiteLabelSettings,
       },
     })
 

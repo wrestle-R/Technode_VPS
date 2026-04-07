@@ -12,7 +12,6 @@ type CompanyFormProps = {
     company_id?: number
     name: string
     slug: string
-    white_label_settings: string
     logo_url?: string
     icon_url?: string
   }
@@ -22,7 +21,6 @@ export function CompanyForm({ mode, initialValues }: CompanyFormProps) {
   const router = useRouter()
   const [name, setName] = useState(initialValues?.name ?? "")
   const [slug, setSlug] = useState(initialValues?.slug ?? "")
-  const [whiteLabelSettings, setWhiteLabelSettings] = useState(initialValues?.white_label_settings ?? "{}")
   const [logo, setLogo] = useState<File | null>(null)
   const [icon, setIcon] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -35,7 +33,6 @@ export function CompanyForm({ mode, initialValues }: CompanyFormProps) {
       const formData = new FormData()
       formData.set("name", name)
       formData.set("slug", slug)
-      formData.set("white_label_settings", whiteLabelSettings)
 
       if (logo) {
         formData.set("logo", logo)
@@ -117,15 +114,6 @@ export function CompanyForm({ mode, initialValues }: CompanyFormProps) {
           />
         </label>
       </div>
-
-      <label className="space-y-2 text-sm">
-        <span className="font-medium">White Label Settings JSON</span>
-        <textarea
-          className="min-h-32 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          value={whiteLabelSettings}
-          onChange={(event) => setWhiteLabelSettings(event.target.value)}
-        />
-      </label>
 
       {initialValues?.logo_url || initialValues?.icon_url ? (
         <div className="grid gap-4 sm:grid-cols-2">

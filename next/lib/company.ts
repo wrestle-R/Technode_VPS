@@ -13,7 +13,6 @@ export type CompanyBranding = {
   logoUrl: string
   iconUrl: string
   loginUrl: string
-  whiteLabelSettings: unknown
 }
 
 function mapCompanyBranding(company: {
@@ -22,7 +21,6 @@ function mapCompanyBranding(company: {
   slug: string
   logo_path: string
   icon_path: string
-  white_label_settings: unknown
 }) {
   return {
     companyId: company.company_id,
@@ -33,7 +31,6 @@ function mapCompanyBranding(company: {
     logoUrl: getCompanyAssetUrl(company.logo_path),
     iconUrl: getCompanyAssetUrl(company.icon_path),
     loginUrl: buildCompanyLoginUrl(company.slug),
-    whiteLabelSettings: company.white_label_settings,
   } satisfies CompanyBranding
 }
 
@@ -46,7 +43,6 @@ export async function getCompanyBySlug(slug: string) {
       slug: true,
       logo_path: true,
       icon_path: true,
-      white_label_settings: true,
     },
   })
 
@@ -62,7 +58,6 @@ export async function getCompanyById(companyId: number) {
       slug: true,
       logo_path: true,
       icon_path: true,
-      white_label_settings: true,
     },
   })
 

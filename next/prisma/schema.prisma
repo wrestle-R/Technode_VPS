@@ -8,15 +8,14 @@ datasource db {
 }
 
 model Company {
-  company_id            Int      @id @default(autoincrement())
-  name                  String   @db.VarChar(100)
-  slug                  String   @unique @db.VarChar(100)
-  logo_path             String   @db.VarChar(255)
-  icon_path             String   @db.VarChar(255)
-  white_label_settings  Json     @default("{}")
-  created_at            DateTime @default(now())
-  updated_at            DateTime @updatedAt
-  customers             Customer[]
+  company_id Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  slug       String   @unique @db.VarChar(100)
+  logo_path  String   @db.VarChar(255)
+  icon_path  String   @db.VarChar(255)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  customers  Customer[]
 
   @@map("companies")
 }

@@ -11,6 +11,7 @@ import {
   BarChart3,
   Table,
   Cpu,
+  Zap,
   CircuitBoard,
   Wifi,
   WifiOff,
@@ -56,6 +57,22 @@ export function CustomerSidebar({
   const { user, clearUser } = useUser();
   const { state } = useSidebar();
   const { units, isLoading: devicesLoading } = useDevices(true);
+
+  const formatUnitId = (value: string) => {
+    if (value.length <= 18) {
+      return value;
+    }
+
+    return `${value.slice(0, 8)}...${value.slice(-6)}`;
+  };
+
+  const getTypeLabel = (deviceType: "ems" | "other") => {
+    return deviceType === "ems" ? "EMS" : "DEVICE";
+  };
+
+  const getTypeIcon = (deviceType: "ems" | "other") => {
+    return deviceType === "ems" ? Zap : Cpu;
+  };
 
   const isActive = (url: string, hasChildren = false) => {
     if (pathname === url) return true;
@@ -136,7 +153,10 @@ export function CustomerSidebar({
                   No devices assigned
                 </div>
               ) : (
-                units.map((unit) => (
+                units.map((unit) => {
+                  const DeviceIcon = getTypeIcon(unit.deviceType);
+
+                  return (
                   <Collapsible
                     key={unit.unitId}
                     asChild
@@ -155,11 +175,21 @@ export function CustomerSidebar({
                               "border-l-4 border-primary bg-primary/10 pl-2 font-medium"
                           )}
                         >
-                          <Cpu className="h-4 w-4" />
-                          <span className="flex-1 truncate font-mono text-xs">
-                            {unit.unitId.length > 14
-                              ? `...${unit.unitId.slice(-10)}`
-                              : unit.unitId}
+                          <DeviceIcon className="h-4 w-4 shrink-0" />
+                          <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                            <span
+                              className={cn(
+                                "text-[10px] font-semibold uppercase tracking-[0.18em]",
+                                pathname.includes(`/ems/${unit.unitId}`)
+                                  ? "text-foreground/80"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {getTypeLabel(unit.deviceType)}
+                            </span>
+                            <span className="truncate font-mono text-xs text-muted-foreground">
+                              {formatUnitId(unit.unitId)}
+                            </span>
                           </span>
                           <div className="flex items-center gap-1">
                             {state === "expanded" && (
@@ -237,7 +267,8 @@ export function CustomerSidebar({
                       </CollapsibleContent>
                     </SidebarMenuItem>
                   </Collapsible>
-                ))
+                  );
+                })
               )}
             </SidebarMenu>
           </SidebarGroupContent>

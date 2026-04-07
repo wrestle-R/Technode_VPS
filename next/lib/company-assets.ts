@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 
 const ALLOWED_IMAGE_TYPES = new Map([
@@ -18,10 +18,6 @@ function getRepoRoot() {
 
 export function getUploadsRoot() {
   return path.join(getRepoRoot(), "uploads")
-}
-
-export function getPublicAssetPath(filename: string) {
-  return path.join(process.cwd(), "public", filename)
 }
 
 export function getCompanyAssetUrl(relativePath: string) {
@@ -57,14 +53,6 @@ export function inferContentType(filePath: string) {
 
 async function ensureDirectoryExists(directoryPath: string) {
   await mkdir(directoryPath, { recursive: true })
-}
-
-export async function seedDefaultCompanyAssets() {
-  const directoryPath = path.join(getUploadsRoot(), "companies", "technode")
-  await ensureDirectoryExists(directoryPath)
-
-  await copyFile(getPublicAssetPath("logo.png"), path.join(directoryPath, "logo.png"))
-  await copyFile(getPublicAssetPath("icon.png"), path.join(directoryPath, "icon.png"))
 }
 
 export async function saveCompanyAsset({
