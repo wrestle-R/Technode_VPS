@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
 
 type CustomerUnitSummary = {
@@ -35,7 +36,9 @@ export function CustomerDevicesPageClient({
           return
         }
 
-        const data = (await response.json()) as { units?: CustomerUnitSummary[] }
+        const data = (await response.json()) as {
+          units?: CustomerUnitSummary[]
+        }
         if (!cancelled) {
           setUnits(data.units ?? [])
         }
@@ -57,21 +60,36 @@ export function CustomerDevicesPageClient({
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {units.map((unit) => (
-        <Link
-          href={`/devices/ems/${unit.unitId}/overview`}
+        <motion.article
           key={unit.id}
-          className="card-glow rounded-2xl border bg-card p-5 shadow-sm transition hover:border-primary/40"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28 }}
+          className="rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 p-[1px] shadow-[0_18px_36px_-24px_rgba(15,23,42,0.7)]"
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Unit</p>
-          <p className="mt-2 text-lg font-semibold">{unit.unitId}</p>
-          <div className="mt-3">
-            <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(unit.status)}`}>
-              {unit.status}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">{unit.locationLabel ?? "No location set"}</p>
-          <p className="mt-1 text-sm text-muted-foreground">Slaves in latest snapshot: {unit.slaveCount}</p>
-        </Link>
+          <Link
+            href={`/devices/ems/${unit.unitId}/charts`}
+            className="card-glow block rounded-[15px] bg-card p-5 transition hover:translate-y-[-2px]"
+          >
+            <p className="text-xs font-semibold tracking-[0.1em] text-muted-foreground uppercase">
+              Unit
+            </p>
+            <p className="mt-2 text-lg font-semibold">{unit.unitId}</p>
+            <div className="mt-3">
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(unit.status)}`}
+              >
+                {unit.status}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {unit.locationLabel ?? "No location set"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Slaves in latest snapshot: {unit.slaveCount}
+            </p>
+          </Link>
+        </motion.article>
       ))}
       {units.length === 0 ? (
         <article className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">

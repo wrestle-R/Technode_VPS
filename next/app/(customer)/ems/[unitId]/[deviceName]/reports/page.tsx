@@ -6,5 +6,5 @@ export default async function ReportsPage({
   params: Promise<{ unitId: string; deviceName: string }>
 }) {
   const { unitId } = await params
-  redirect(`/devices/ems/${encodeURIComponent(unitId)}/overview`)
+  redirect(`/devices/ems/${encodeURIComponent(unitId)}/reports`)
 }

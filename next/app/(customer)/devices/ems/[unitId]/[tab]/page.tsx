@@ -1,10 +1,10 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { getCustomerSessionFromCookies } from "@/lib/auth"
 import { CustomerUnitTabClient } from "@/components/customer/ems/unit-tab-client"
 import { getCustomerEmsUnitDetail } from "@/lib/ems/queries"
 
-const validTabs = new Set(["overview", "charts", "logs"])
+const validTabs = new Set(["charts", "logs", "reports"])
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +21,7 @@ export default async function CustomerUnitTabPage({
 
   const session = await getCustomerSessionFromCookies()
   if (!session) {
-    notFound()
+    redirect("/login")
   }
 
   const unit = await getCustomerEmsUnitDetail({

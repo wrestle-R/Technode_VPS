@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation"
+import Image from "next/image"
+import Link from "next/link"
 import {
   Home,
   User,
@@ -15,17 +15,17 @@ import {
   CircuitBoard,
   Wifi,
   WifiOff,
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+} from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
-import { cn } from "@/lib/utils";
-import { useUser } from "@/contexts/user-context";
-import { useDevices } from "@/hooks/use-devices";
+import { cn } from "@/lib/utils"
+import { useUser } from "@/contexts/user-context"
+import { useDevices } from "@/hooks/use-devices"
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "@/components/ui/collapsible";
+} from "@/components/ui/collapsible"
 import {
   Sidebar,
   SidebarContent,
@@ -42,8 +42,8 @@ import {
   SidebarRail,
   SidebarSeparator,
   useSidebar,
-} from "@/components/ui/sidebar";
-import { SidebarDeviceSkeleton } from "@/components/customer/ems/page-skeleton";
+} from "@/components/ui/sidebar"
+import { SidebarDeviceSkeleton } from "@/components/customer/ems/page-skeleton"
 
 export function CustomerSidebar({
   companySidebarImageUrl,
@@ -52,43 +52,43 @@ export function CustomerSidebar({
   companySidebarImageUrl: string
   companyName: string
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { user, clearUser } = useUser();
-  const { state } = useSidebar();
-  const { units, isLoading: devicesLoading } = useDevices(true);
+  const pathname = usePathname()
+  const router = useRouter()
+  const { user, clearUser } = useUser()
+  const { state } = useSidebar()
+  const { units, isLoading: devicesLoading } = useDevices(true)
 
   const formatUnitId = (value: string) => {
     if (value.length <= 18) {
-      return value;
+      return value
     }
 
-    return `${value.slice(0, 8)}...${value.slice(-6)}`;
-  };
+    return `${value.slice(0, 8)}...${value.slice(-6)}`
+  }
 
   const getTypeLabel = (deviceType: "ems" | "other") => {
-    return deviceType === "ems" ? "EMS" : "DEVICE";
-  };
+    return deviceType === "ems" ? "EMS" : "DEVICE"
+  }
 
   const getTypeIcon = (deviceType: "ems" | "other") => {
-    return deviceType === "ems" ? Zap : Cpu;
-  };
+    return deviceType === "ems" ? Zap : Cpu
+  }
 
   const isActive = (url: string, hasChildren = false) => {
-    if (pathname === url) return true;
-    if (hasChildren) return pathname.startsWith(url + "/");
-    return false;
-  };
+    if (pathname === url) return true
+    if (hasChildren) return pathname.startsWith(url + "/")
+    return false
+  }
 
   const handleLogout = async () => {
-    clearUser();
+    clearUser()
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST" })
     } finally {
-      router.push("/login");
-      router.refresh();
+      router.push("/login")
+      router.refresh()
     }
-  };
+  }
 
   return (
     <Sidebar
@@ -116,7 +116,7 @@ export function CustomerSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100/55">
+          <SidebarGroupLabel className="text-xs font-semibold tracking-[0.2em] text-sky-100/55 uppercase">
             Main
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -141,7 +141,7 @@ export function CustomerSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100/55">
+          <SidebarGroupLabel className="text-xs font-semibold tracking-[0.2em] text-sky-100/55 uppercase">
             Devices
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -154,120 +154,137 @@ export function CustomerSidebar({
                 </div>
               ) : (
                 units.map((unit) => {
-                  const DeviceIcon = getTypeIcon(unit.deviceType);
+                  const DeviceIcon = getTypeIcon(unit.deviceType)
 
                   return (
-                  <Collapsible
-                    key={unit.unitId}
-                    asChild
-                    defaultOpen={pathname.includes(`/ems/${unit.unitId}`)}
-                    className="group/unit"
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          isActive={pathname.includes(`/ems/${unit.unitId}`)}
-                          tooltip={unit.unitId}
-                          className={cn(
-                            "cursor-pointer",
-                            state === "expanded" &&
-                              pathname.includes(`/ems/${unit.unitId}`) &&
-                              "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
-                          )}
-                        >
-                          <DeviceIcon className="h-4 w-4 shrink-0" />
-                          <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                            <span
-                              className={cn(
-                                "text-[10px] font-semibold uppercase tracking-[0.18em]",
-                                pathname.includes(`/ems/${unit.unitId}`)
-                                  ? "text-sky-100"
-                                  : "text-sky-100/60"
-                              )}
-                            >
-                              {getTypeLabel(unit.deviceType)}
-                            </span>
-                            <span className="truncate font-mono text-xs text-sky-50/70">
-                              {formatUnitId(unit.unitId)}
-                            </span>
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {state === "expanded" && (
-                              <>
-                                {unit.status?.toLowerCase() === "online" ? (
-                                  <Wifi className="h-3 w-3 text-emerald-400" />
-                                ) : (
-                                  <WifiOff className="h-3 w-3 text-rose-400" />
-                                )}
-                              </>
+                    <Collapsible
+                      key={unit.unitId}
+                      asChild
+                      defaultOpen={pathname.includes(`/ems/${unit.unitId}`)}
+                      className="group/unit"
+                    >
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            isActive={pathname.includes(`/ems/${unit.unitId}`)}
+                            tooltip={unit.unitId}
+                            className={cn(
+                              "cursor-pointer",
+                              state === "expanded" &&
+                                pathname.includes(`/ems/${unit.unitId}`) &&
+                                "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
                             )}
-                            <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
-                          </div>
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent>
-                        <AnimatePresence>
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
                           >
-                            <SidebarMenuSub className="border-l-white/15">
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  href={`/devices/ems/${unit.unitId}/overview`}
-                                  isActive={pathname.startsWith(`/devices/ems/${unit.unitId}/overview`)}
-                                  className={cn(
-                                    "transition-colors",
-                                    pathname.startsWith(`/devices/ems/${unit.unitId}/overview`)
-                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
-                                      : "hover:bg-white/8"
+                            <DeviceIcon className="h-4 w-4 shrink-0" />
+                            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                              <span
+                                className={cn(
+                                  "text-[10px] font-semibold tracking-[0.18em] uppercase",
+                                  pathname.includes(`/ems/${unit.unitId}`)
+                                    ? "text-sky-100"
+                                    : "text-sky-100/60"
+                                )}
+                              >
+                                {getTypeLabel(unit.deviceType)}
+                              </span>
+                              <span className="truncate font-mono text-xs text-sky-50/70">
+                                {formatUnitId(unit.unitId)}
+                              </span>
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {state === "expanded" && (
+                                <>
+                                  {unit.status?.toLowerCase() === "online" ? (
+                                    <Wifi className="h-3 w-3 text-emerald-400" />
+                                  ) : (
+                                    <WifiOff className="h-3 w-3 text-rose-400" />
                                   )}
-                                >
-                                  <CircuitBoard className="mr-1 h-3.5 w-3.5" />
-                                  <span className="flex-1 truncate">Overview</span>
-                                  <span className="text-[11px] text-sky-100/60">{unit.slaveCount}</span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  href={`/devices/ems/${unit.unitId}/logs`}
-                                  isActive={pathname.startsWith(`/devices/ems/${unit.unitId}/logs`)}
-                                  className={cn(
-                                    "transition-colors",
-                                    pathname.startsWith(`/devices/ems/${unit.unitId}/logs`)
-                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
-                                      : "hover:bg-white/8"
-                                  )}
-                                >
-                                  <Table className="mr-1 h-3.5 w-3.5" />
-                                  <span className="flex-1 truncate">Logs</span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  href={`/devices/ems/${unit.unitId}/charts`}
-                                  isActive={pathname.startsWith(`/devices/ems/${unit.unitId}/charts`)}
-                                  className={cn(
-                                    "transition-colors",
-                                    pathname.startsWith(`/devices/ems/${unit.unitId}/charts`)
-                                      ? "bg-white/12 font-medium text-white before:absolute before:-left-[9px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
-                                      : "hover:bg-white/8"
-                                  )}
-                                >
-                                  <BarChart3 className="mr-1 h-3.5 w-3.5" />
-                                  <span className="flex-1 truncate">Charts</span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                          </motion.div>
-                        </AnimatePresence>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                  );
+                                </>
+                              )}
+                              <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
+                            </div>
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+
+                        <CollapsibleContent>
+                          <AnimatePresence>
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <SidebarMenuSub className="border-l-white/15">
+                                <SidebarMenuSubItem>
+                                  <SidebarMenuSubButton
+                                    href={`/devices/ems/${unit.unitId}/charts`}
+                                    isActive={pathname.startsWith(
+                                      `/devices/ems/${unit.unitId}/charts`
+                                    )}
+                                    className={cn(
+                                      "transition-colors",
+                                      pathname.startsWith(
+                                        `/devices/ems/${unit.unitId}/charts`
+                                      )
+                                        ? "bg-white/12 font-medium text-white before:absolute before:top-1/2 before:-left-[9px] before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                        : "hover:bg-white/8"
+                                    )}
+                                  >
+                                    <BarChart3 className="mr-1 h-3.5 w-3.5" />
+                                    <span className="flex-1 truncate">
+                                      Charts
+                                    </span>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                                <SidebarMenuSubItem>
+                                  <SidebarMenuSubButton
+                                    href={`/devices/ems/${unit.unitId}/logs`}
+                                    isActive={pathname.startsWith(
+                                      `/devices/ems/${unit.unitId}/logs`
+                                    )}
+                                    className={cn(
+                                      "transition-colors",
+                                      pathname.startsWith(
+                                        `/devices/ems/${unit.unitId}/logs`
+                                      )
+                                        ? "bg-white/12 font-medium text-white before:absolute before:top-1/2 before:-left-[9px] before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                        : "hover:bg-white/8"
+                                    )}
+                                  >
+                                    <Table className="mr-1 h-3.5 w-3.5" />
+                                    <span className="flex-1 truncate">
+                                      Logs
+                                    </span>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                                <SidebarMenuSubItem>
+                                  <SidebarMenuSubButton
+                                    href={`/devices/ems/${unit.unitId}/reports`}
+                                    isActive={pathname.startsWith(
+                                      `/devices/ems/${unit.unitId}/reports`
+                                    )}
+                                    className={cn(
+                                      "transition-colors",
+                                      pathname.startsWith(
+                                        `/devices/ems/${unit.unitId}/reports`
+                                      )
+                                        ? "bg-white/12 font-medium text-white before:absolute before:top-1/2 before:-left-[9px] before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-cyan-300"
+                                        : "hover:bg-white/8"
+                                    )}
+                                  >
+                                    <CircuitBoard className="mr-1 h-3.5 w-3.5" />
+                                    <span className="flex-1 truncate">
+                                      Reports
+                                    </span>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              </SidebarMenuSub>
+                            </motion.div>
+                          </AnimatePresence>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  )
                 })
               )}
             </SidebarMenu>
@@ -319,10 +336,7 @@ export function CustomerSidebar({
               className="mb-2 w-full cursor-pointer text-rose-200 hover:bg-rose-500/12 hover:text-white"
             >
               <LogOut
-                className={cn(
-                  "h-4 w-4",
-                  state === "expanded" && "ml-2"
-                )}
+                className={cn("h-4 w-4", state === "expanded" && "ml-2")}
               />
               {state === "expanded" && (
                 <span className="font-medium">Logout</span>
@@ -333,5 +347,5 @@ export function CustomerSidebar({
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  );
+  )
 }

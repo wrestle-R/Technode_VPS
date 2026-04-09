@@ -60,8 +60,9 @@ export function useDevices(enabled = true) {
               locationLabel: unit.locationLabel ?? null,
               slaveCount: unit.slaveCount,
               devices: [
-                { id: `${unit.unitId}-overview` },
+                { id: `${unit.unitId}-charts` },
                 { id: `${unit.unitId}-logs` },
+                { id: `${unit.unitId}-reports` },
               ],
             }))
           )
