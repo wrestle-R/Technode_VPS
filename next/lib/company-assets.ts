@@ -1,4 +1,5 @@
 import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import { existsSync } from "node:fs"
 import path from "node:path"
 
 const ALLOWED_IMAGE_TYPES = new Map([
@@ -13,7 +14,14 @@ const ALLOWED_IMAGE_TYPES = new Map([
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 function getRepoRoot() {
-  return path.resolve(process.cwd(), "..")
+  const cwd = process.cwd()
+  const uploadsInCwd = path.join(cwd, "uploads")
+
+  if (existsSync(uploadsInCwd)) {
+    return cwd
+  }
+
+  return path.resolve(cwd, "..")
 }
 
 export function getUploadsRoot() {
@@ -28,7 +36,10 @@ export function getCompanyAssetRelativePath(slug: string, filename: string) {
   return path.posix.join("companies", slug, filename)
 }
 
-export function getCompanyAssetFilename(kind: "loginImage" | "sidebarImage" | "browserIcon", extension: string) {
+export function getCompanyAssetFilename(
+  kind: "loginImage" | "sidebarImage" | "browserIcon",
+  extension: string
+) {
   switch (kind) {
     case "loginImage":
       return `login${extension}`
@@ -89,7 +100,10 @@ export async function saveCompanyAsset({
     throw new Error("Uploaded file is too large.")
   }
 
-  const relativePath = getCompanyAssetRelativePath(slug, getCompanyAssetFilename(kind, extension))
+  const relativePath = getCompanyAssetRelativePath(
+    slug,
+    getCompanyAssetFilename(kind, extension)
+  )
   const absolutePath = getCompanyAssetAbsolutePath(relativePath)
   await ensureDirectoryExists(path.dirname(absolutePath))
   await writeFile(absolutePath, buffer)
@@ -97,7 +111,10 @@ export async function saveCompanyAsset({
   return relativePath
 }
 
-export async function renameCompanyAssets(previousSlug: string, nextSlug: string) {
+export async function renameCompanyAssets(
+  previousSlug: string,
+  nextSlug: string
+) {
   if (previousSlug === nextSlug) {
     return
   }
@@ -117,7 +134,9 @@ export async function renameCompanyAssets(previousSlug: string, nextSlug: string
 }
 
 export async function readUploadFile(pathSegments: string[]) {
-  const safeSegments = pathSegments.filter((segment) => segment && segment !== "." && segment !== "..")
+  const safeSegments = pathSegments.filter(
+    (segment) => segment && segment !== "." && segment !== ".."
+  )
   const absolutePath = path.join(getUploadsRoot(), ...safeSegments)
 
   if (!absolutePath.startsWith(getUploadsRoot())) {
