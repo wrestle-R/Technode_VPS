@@ -16,7 +16,11 @@ export async function generateMetadata() {
   }
 }
 
-export default async function CustomerLayout({ children }: { children: ReactNode }) {
+export default async function CustomerLayout({
+  children,
+}: {
+  children: ReactNode
+}) {
   const session = await getCustomerSessionFromCookies()
   if (!session) {
     redirect("/login")
@@ -34,12 +38,15 @@ export default async function CustomerLayout({ children }: { children: ReactNode
       }}
     >
       <SidebarProvider>
-        <CustomerSidebar companySidebarImageUrl={session.companySidebarImageUrl} companyName={session.companyName} />
-        <main className="app-page-surface relative flex h-screen w-full flex-col p-2 md:p-3">
+        <CustomerSidebar
+          companySidebarImageUrl={session.companySidebarImageUrl}
+          companyName={session.companyName}
+        />
+        <main className="app-page-surface relative flex h-screen w-full min-w-0 flex-col overflow-x-hidden p-2 md:p-3">
           <div className="app-card-surface sticky top-2 z-30 mb-2 shrink-0 overflow-hidden rounded-2xl border shadow-sm">
             <Topbar />
           </div>
-          <div className="app-card-surface flex-1 overflow-y-auto rounded-[24px] border p-4 md:p-6 shadow-sm">
+          <div className="app-card-surface min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded-[24px] border p-4 shadow-sm md:p-6">
             {children}
           </div>
         </main>

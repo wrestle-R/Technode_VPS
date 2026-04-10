@@ -20,8 +20,8 @@ export function EmsLogsTable({
   selectedLogRows: LogRow[]
 }) {
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+    <div className="w-full max-w-full min-w-0 space-y-4">
+      <div className="overflow-hidden rounded-2xl border bg-gradient-to-r from-card to-muted/20 p-5 shadow-sm">
         <label className="grid gap-2 text-sm sm:max-w-xs">
           <span className="font-medium">Meter</span>
           <select
@@ -38,8 +38,8 @@ export function EmsLogsTable({
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
-        <table className="min-w-full divide-y divide-border text-sm">
+      <div className="w-full overflow-x-auto rounded-2xl border bg-card shadow-sm">
+        <table className="w-full min-w-max divide-y divide-border text-sm">
           <thead className="bg-white/60">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Timestamp</th>
