@@ -78,7 +78,7 @@ export function CustomerDevicesPageClient({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28 }}
-          className="rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 p-[1px] shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)]"
+          className="rounded-2xl bg-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)]"
         >
           <Link
             href={`/devices/ems/${unit.unitId}/charts`}

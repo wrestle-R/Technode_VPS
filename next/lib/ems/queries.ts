@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
-import { mapStoredRtuArray, normalizeFieldTemplate, normalizeRtuOverrides } from "@/lib/ems/service"
+import {
+  mapStoredRtuArray,
+  normalizeFieldTemplate,
+  normalizeRtuOverrides,
+} from "@/lib/ems/service"
 import type { EmsFieldTemplateEntry, MappedRtuEntry } from "@/lib/ems/types"
 
 function asNumber(value: { toString(): string } | null | undefined) {
@@ -53,6 +57,48 @@ type UnitWithLogs = Prisma.EmsUnitGetPayload<{
   }
 }>
 
+type SummaryRange = "24h" | "7d" | "30d"
+
+type StatSeries = {
+  max: number | null
+  min: number | null
+  avg: number | null
+}
+
+type SummaryStats = {
+  voltage: StatSeries
+  current: StatSeries
+  power: StatSeries
+  powerFactor: StatSeries
+}
+
+function finiteMetric(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function rangeStartDate(range: SummaryRange) {
+  const now = Date.now()
+  if (range === "24h") {
+    return new Date(now - 24 * 60 * 60 * 1000)
+  }
+  if (range === "7d") {
+    return new Date(now - 7 * 24 * 60 * 60 * 1000)
+  }
+  return new Date(now - 30 * 24 * 60 * 60 * 1000)
+}
+
+function stats(values: number[]): StatSeries {
+  if (values.length === 0) {
+    return { max: null, min: null, avg: null }
+  }
+
+  return {
+    max: Math.max(...values),
+    min: Math.min(...values),
+    avg: values.reduce((sum, value) => sum + value, 0) / values.length,
+  }
+}
+
 function formatMappedArray(
   rawRtuArray: unknown,
   unitTemplate: EmsFieldTemplateEntry[],
@@ -63,49 +109,64 @@ function formatMappedArray(
     rawRtuArray,
     unitTemplate,
     overrides,
-  })
-    .map((entry) => {
-      const rtu = entry as MappedRtuEntry
-      const rtuKey = rtu.id != null ? String(rtu.id) : rtu.slave ?? "unknown"
-      const fieldTemplate = getFieldTemplateForRtu({ unitTemplate })
-      const nickname = overrides[rtuKey]?.nickname?.trim() || rtu.nickname || rtu.slave || `RTU-${rtu.id ?? "unknown"}`
-      const orderedMetrics = Object.entries(rtu.metrics ?? {})
-        .map(([key, value]) => {
-          const field = fieldTemplate.find((item) => item.key === key)
-          return {
-            key,
-            label: field?.label ?? key,
-            order: field?.order ?? Number.MAX_SAFE_INTEGER,
-            value: typeof value === "number" ? value * scalingFactor : value,
-          }
-        })
-        .sort((a, b) => a.order - b.order)
+  }).map((entry) => {
+    const rtu = entry as MappedRtuEntry
+    const rtuKey = rtu.id != null ? String(rtu.id) : (rtu.slave ?? "unknown")
+    const fieldTemplate = getFieldTemplateForRtu({ unitTemplate })
+    const nickname =
+      overrides[rtuKey]?.nickname?.trim() ||
+      rtu.nickname ||
+      rtu.slave ||
+      `RTU-${rtu.id ?? "unknown"}`
+    const orderedMetrics = Object.entries(rtu.metrics ?? {})
+      .map(([key, value]) => {
+        const field = fieldTemplate.find((item) => item.key === key)
+        return {
+          key,
+          label: field?.label ?? key,
+          order: field?.order ?? Number.MAX_SAFE_INTEGER,
+          value: typeof value === "number" ? value * scalingFactor : value,
+        }
+      })
+      .sort((a, b) => a.order - b.order)
 
-      return {
-        rtuKey,
-        id: rtu.id,
-        slave: rtu.slave,
-        nickname,
-        res: rtu.res,
-        datalen: rtu.datalen,
-        fieldTemplate,
-        metrics: orderedMetrics,
-      }
-    })
+    return {
+      rtuKey,
+      id: rtu.id,
+      slave: rtu.slave,
+      nickname,
+      res: rtu.res,
+      datalen: rtu.datalen,
+      fieldTemplate,
+      metrics: orderedMetrics,
+    }
+  })
 }
 
 function formatUnit(unit: UnitWithLogs) {
   const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
   const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
   const latestLog = unit.logs[0] ?? null
-  const mappedRtus = latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides, scalingFactor) : []
+  const mappedRtus = latestLog
+    ? formatMappedArray(
+        latestLog.raw_rtu_array,
+        unitTemplate,
+        overrides,
+        scalingFactor
+      )
+    : []
 
   return {
     id: unit.id.toString(),
     unitId: unit.unit_id,
     customerId: unit.customer_id,
-    customerName: unit.customer?.company.name ?? unit.customer?.customer_representative ?? null,
+    customerName:
+      unit.customer?.company.name ??
+      unit.customer?.customer_representative ??
+      null,
     locationLabel: unit.location_label,
     latitude: asNumber(unit.latitude),
     longitude: asNumber(unit.longitude),
@@ -241,14 +302,18 @@ export async function getAdminEmsCustomersWithUnits() {
 
   const counts = new Map(
     grouped
-      .filter((row): row is typeof row & { customer_id: number } => row.customer_id != null)
+      .filter(
+        (row): row is typeof row & { customer_id: number } =>
+          row.customer_id != null
+      )
       .map((row) => [row.customer_id, row._count._all])
   )
 
   return customers.map((customer) => ({
     customerId: customer.customer_id,
     companyName: customer.company.name,
-    customerName: customer.customer_representative ?? `Customer #${customer.customer_id}`,
+    customerName:
+      customer.customer_representative ?? `Customer #${customer.customer_id}`,
     unitCount: counts.get(customer.customer_id) ?? 0,
   }))
 }
@@ -282,11 +347,21 @@ export async function getAdminEmsUnit(unitId: string) {
   const formatted = formatUnit(unit)
   const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
   const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
-  const knownRtuMap = new Map<string, ReturnType<typeof formatMappedArray>[number]>()
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
+  const knownRtuMap = new Map<
+    string,
+    ReturnType<typeof formatMappedArray>[number]
+  >()
 
   for (const log of unit.logs) {
-    for (const rtu of formatMappedArray(log.raw_rtu_array, unitTemplate, overrides, scalingFactor)) {
+    for (const rtu of formatMappedArray(
+      log.raw_rtu_array,
+      unitTemplate,
+      overrides,
+      scalingFactor
+    )) {
       if (!knownRtuMap.has(rtu.rtuKey)) {
         knownRtuMap.set(rtu.rtuKey, rtu)
       }
@@ -299,7 +374,12 @@ export async function getAdminEmsUnit(unitId: string) {
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
       status: inferStatus(log.raw_unit_payload, log.device_timestamp),
-      rtus: formatMappedArray(log.raw_rtu_array, unitTemplate, overrides, scalingFactor),
+      rtus: formatMappedArray(
+        log.raw_rtu_array,
+        unitTemplate,
+        overrides,
+        scalingFactor
+      ),
     })),
     rtus: Array.from(knownRtuMap.values()),
   }
@@ -320,14 +400,26 @@ export async function getCustomerEmsUnits(customerId: number) {
   return units.map((unit: (typeof units)[number]) => {
     const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
     const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-    const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
+    const scalingFactor = readScalingFactor(
+      unit as unknown as Record<string, unknown>
+    )
     const latestLog = unit.logs[0] ?? null
-    const mappedRtus = latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides, scalingFactor) : []
+    const mappedRtus = latestLog
+      ? formatMappedArray(
+          latestLog.raw_rtu_array,
+          unitTemplate,
+          overrides,
+          scalingFactor
+        )
+      : []
 
     return {
       id: unit.id.toString(),
       unitId: unit.unit_id,
-      status: inferStatus(latestLog?.raw_unit_payload, unit.last_seen_at ?? null),
+      status: inferStatus(
+        latestLog?.raw_unit_payload,
+        unit.last_seen_at ?? null
+      ),
       locationLabel: unit.location_label,
       latitude: asNumber(unit.latitude),
       longitude: asNumber(unit.longitude),
@@ -364,7 +456,9 @@ export async function getCustomerEmsUnitDetail({
 
   const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
   const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(unit as unknown as Record<string, unknown>)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
   const latestLog = unit.logs[0] ?? null
 
   return {
@@ -376,12 +470,149 @@ export async function getCustomerEmsUnitDetail({
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
     lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
-    latestRtus: latestLog ? formatMappedArray(latestLog.raw_rtu_array, unitTemplate, overrides, scalingFactor) : [],
+    latestRtus: latestLog
+      ? formatMappedArray(
+          latestLog.raw_rtu_array,
+          unitTemplate,
+          overrides,
+          scalingFactor
+        )
+      : [],
     logs: unit.logs.map((log: (typeof unit.logs)[number]) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
       status: inferStatus(log.raw_unit_payload, log.device_timestamp),
-      rtus: formatMappedArray(log.raw_rtu_array, unitTemplate, overrides, scalingFactor),
+      rtus: formatMappedArray(
+        log.raw_rtu_array,
+        unitTemplate,
+        overrides,
+        scalingFactor
+      ),
     })),
+  }
+}
+
+export async function getCustomerEmsSummaryStats({
+  customerId,
+  unitId,
+  rtuKey,
+  range,
+}: {
+  customerId: number
+  unitId: string
+  rtuKey: string
+  range: SummaryRange
+}): Promise<SummaryStats | null> {
+  const unit = await prisma.emsUnit.findFirst({
+    where: {
+      unit_id: unitId,
+      customer_id: customerId,
+    },
+    select: {
+      id: true,
+      unit_field_template: true,
+      rtu_overrides: true,
+      scalingFactor: true,
+    },
+  })
+
+  if (!unit) {
+    return null
+  }
+
+  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
+  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
+  const startAt = rangeStartDate(range)
+
+  const logs = await prisma.emsLog.findMany({
+    where: {
+      ems_unit_id: unit.id,
+      device_timestamp: {
+        gte: startAt,
+      },
+    },
+    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
+    select: {
+      raw_rtu_array: true,
+    },
+  })
+
+  const voltageRows: number[] = []
+  const currentRows: number[] = []
+  const powerRows: number[] = []
+  const powerFactorRows: number[] = []
+
+  for (const log of logs) {
+    const mappedRtus = formatMappedArray(
+      log.raw_rtu_array,
+      unitTemplate,
+      overrides,
+      scalingFactor
+    )
+    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
+    if (!rtu) {
+      continue
+    }
+
+    const metricMap = new Map(
+      rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
+    )
+
+    const vry = metricMap.get("VRY")
+    const vyb = metricMap.get("VYB")
+    const vbr = metricMap.get("VBR")
+    const ir = metricMap.get("IR")
+    const iy = metricMap.get("IY")
+    const ib = metricMap.get("IB")
+    const kwr = metricMap.get("KW-R")
+    const kwy = metricMap.get("KW-Y")
+    const kwb = metricMap.get("KW-B")
+    const pfr = metricMap.get("PF-R")
+    const pfy = metricMap.get("PF-Y")
+    const pfb = metricMap.get("PF-B")
+
+    const voltageValues = [vry, vyb, vbr].filter(
+      (value): value is number => value != null
+    )
+    if (voltageValues.length > 0) {
+      voltageRows.push(
+        voltageValues.reduce((sum, value) => sum + value, 0) /
+          voltageValues.length
+      )
+    }
+
+    const currentValues = [ir, iy, ib].filter(
+      (value): value is number => value != null
+    )
+    if (currentValues.length > 0) {
+      currentRows.push(
+        currentValues.reduce((sum, value) => sum + value, 0) /
+          currentValues.length
+      )
+    }
+
+    if (kwr != null && kwy != null && kwb != null) {
+      powerRows.push(kwr + kwy + kwb)
+    }
+
+    const powerFactorValues = [pfr, pfy, pfb].filter(
+      (value): value is number => value != null && value >= 0 && value <= 1
+    )
+    if (powerFactorValues.length > 0) {
+      powerFactorRows.push(
+        powerFactorValues.reduce((sum, value) => sum + value, 0) /
+          powerFactorValues.length
+      )
+    }
+  }
+
+  return {
+    voltage: stats(voltageRows),
+    current: stats(currentRows),
+    power: stats(powerRows),
+    powerFactor: stats(powerFactorRows),
   }
 }

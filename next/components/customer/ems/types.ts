@@ -41,6 +41,21 @@ export type TrendPoint = {
   [key: string]: number | string | null
 }
 
+export type StatSeries = {
+  max: number | null
+  min: number | null
+  avg: number | null
+}
+
+export type SummaryStats = {
+  voltage: StatSeries
+  current: StatSeries
+  power: StatSeries
+  powerFactor: StatSeries
+}
+
+export type SummaryRange = "24h" | "7d" | "30d"
+
 export type ChartTab =
   | "overview"
   | "voltage"

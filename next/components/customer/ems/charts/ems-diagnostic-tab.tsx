@@ -14,13 +14,21 @@ import {
 } from "recharts"
 
 import {
+  chartGradients,
+  getPagedTrendRows,
   gradientCardClassName,
+  LOG_SCOPE_LIMIT,
+  LOG_WINDOW_SIZE,
   metricValueFromLatest,
   phaseColors,
 } from "@/components/customer/ems/helpers"
 import type { TrendPoint } from "@/components/customer/ems/types"
+import { useState } from "react"
 
 export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
+  const [page, setPage] = useState(0)
+  const pageData = getPagedTrendRows(trendRows, page)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -32,7 +40,19 @@ export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
           <p className="text-sm font-semibold">Power Factor by Phase</p>
           <div className="mt-3 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendRows.slice(-40)}>
+              <LineChart data={pageData.rows}>
+                <defs>
+                  <linearGradient
+                    id="diagnostic-pfb-line"
+                    x1="0"
+                    y1="0"
+                    x2="1"
+                    y2="0"
+                  >
+                    <stop offset="0%" stopColor={chartGradients.blue.from} />
+                    <stop offset="100%" stopColor={chartGradients.blue.to} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#cbd5e1"
@@ -59,12 +79,38 @@ export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
                 <Line
                   type="monotone"
                   dataKey="PF-B"
-                  stroke={phaseColors.blue}
+                  stroke="url(#diagnostic-pfb-line)"
                   dot={false}
                   strokeWidth={2}
                 />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+            <p>
+              Showing logs {pageData.from}-{pageData.to} of {pageData.total}{" "}
+              (last {LOG_SCOPE_LIMIT})
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setPage((prev) => Math.min(prev + 1, pageData.totalPages - 1))
+                }
+                disabled={pageData.activePage >= pageData.totalPages - 1}
+                className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                disabled={pageData.activePage === 0}
+                className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -108,6 +154,9 @@ export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Line-chart window: {LOG_WINDOW_SIZE} logs per page
+          </p>
         </div>
       </article>
     </motion.div>

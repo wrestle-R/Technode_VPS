@@ -4,9 +4,37 @@ export const phaseColors = {
   red: "#ef4444",
   amber: "#f59e0b",
   green: "#22c55e",
-  blue: "#3b82f6",
+  blue: "#2b3242",
+  blueLight: "#3b4356",
   indigo: "#6366f1",
   cyan: "#06b6d4",
+}
+
+export const chartGradients = {
+  blue: {
+    from: phaseColors.blue,
+    to: phaseColors.blueLight,
+  },
+}
+
+export const LOG_WINDOW_SIZE = 30
+export const LOG_SCOPE_LIMIT = 50
+
+export function getPagedTrendRows(rows: TrendPoint[], page: number) {
+  const scoped = rows.slice(-LOG_SCOPE_LIMIT)
+  const totalPages = Math.max(1, Math.ceil(scoped.length / LOG_WINDOW_SIZE))
+  const activePage = Math.min(Math.max(page, 0), totalPages - 1)
+  const end = scoped.length - activePage * LOG_WINDOW_SIZE
+  const start = Math.max(end - LOG_WINDOW_SIZE, 0)
+
+  return {
+    rows: scoped.slice(start, end),
+    totalPages,
+    activePage,
+    from: scoped.length === 0 ? 0 : start + 1,
+    to: end,
+    total: scoped.length,
+  }
 }
 
 export function toFinite(value: number | null | undefined) {
@@ -91,11 +119,11 @@ export function formatNumber(value: number | null, digits = 2) {
 }
 
 export function gradientCardClassName(extra?: string) {
-  return `rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 p-[1px] shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)] ${extra ?? ""}`
+  return `rounded-2xl bg-linear-to-r from-[#2b3242] to-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)] ${extra ?? ""}`
 }
 
 export function reportsGradientCardClassName(extra?: string) {
-  return `rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 p-[1px] shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)] ${extra ?? ""}`
+  return `rounded-2xl bg-linear-to-r from-[#2b3242] to-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)] ${extra ?? ""}`
 }
 
 export function statusClasses(status: string) {

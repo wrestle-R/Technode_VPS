@@ -12,11 +12,15 @@ import {
 
 import {
   formatNumber,
+  getPagedTrendRows,
   gradientCardClassName,
+  LOG_SCOPE_LIMIT,
+  LOG_WINDOW_SIZE,
   metricValueFromLatest,
   phaseColors,
 } from "@/components/customer/ems/helpers"
 import type { TrendPoint } from "@/components/customer/ems/types"
+import { useState } from "react"
 
 export function EmsEnergyTab({
   trendRows,
@@ -25,6 +29,9 @@ export function EmsEnergyTab({
   trendRows: TrendPoint[]
   kwhDelta: number | null
 }) {
+  const [page, setPage] = useState(0)
+  const pageData = getPagedTrendRows(trendRows, page)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -72,7 +79,7 @@ export function EmsEnergyTab({
           <p className="text-sm font-semibold">Cumulative Energy Curves</p>
           <div className="mt-3 h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendRows.slice(-60)}>
+              <LineChart data={pageData.rows}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#cbd5e1"
@@ -106,6 +113,32 @@ export function EmsEnergyTab({
               </LineChart>
             </ResponsiveContainer>
           </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+            <p>
+              Showing logs {pageData.from}-{pageData.to} of {pageData.total} (last {LOG_SCOPE_LIMIT})
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((prev) => Math.min(prev + 1, pageData.totalPages - 1))}
+                disabled={pageData.activePage >= pageData.totalPages - 1}
+                className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                disabled={pageData.activePage === 0}
+                className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Window: {LOG_WINDOW_SIZE} logs per page
+          </p>
         </div>
       </article>
     </motion.div>

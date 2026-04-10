@@ -2,6 +2,7 @@ import Image from "next/image"
 import { format } from "date-fns"
 import { motion } from "framer-motion"
 import { CalendarIcon, Download, FileSpreadsheet, FileText } from "lucide-react"
+import { useState } from "react"
 import type { DateRange } from "react-day-picker"
 import {
   Area,
@@ -18,6 +19,8 @@ import {
 
 import {
   formatNumber,
+  LOG_SCOPE_LIMIT,
+  LOG_WINDOW_SIZE,
   gradientCardClassName,
   phaseColors,
 } from "@/components/customer/ems/helpers"
@@ -70,6 +73,7 @@ export function EmsReportsPanel({
   companyName: string
   companyLoginImageUrl: string
 }) {
+  const [chartPage, setChartPage] = useState(0)
   const rangeSummary =
     reportRange === "24h"
       ? "Last 24 Hours"
@@ -101,7 +105,14 @@ export function EmsReportsPanel({
         }
       : undefined
 
-  const chartRows = reportRows.map((row) => {
+  const scopedRows = reportRows.slice(-LOG_SCOPE_LIMIT)
+  const totalPages = Math.max(1, Math.ceil(scopedRows.length / LOG_WINDOW_SIZE))
+  const activePage = Math.min(Math.max(chartPage, 0), totalPages - 1)
+  const end = scopedRows.length - activePage * LOG_WINDOW_SIZE
+  const start = Math.max(end - LOG_WINDOW_SIZE, 0)
+  const pagedRows = scopedRows.slice(start, end)
+
+  const chartRows = pagedRows.map((row) => {
     const at = new Date(row.timestamp)
     const reportLabel =
       reportRange === "24h"
@@ -225,7 +236,7 @@ export function EmsReportsPanel({
                     onClick={() => onReportRangeChange(item.key)}
                     className={
                       reportRange === item.key
-                        ? "h-10 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-xs font-semibold tracking-[0.12em] text-white uppercase shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)]"
+                        ? "h-10 rounded-xl bg-[#2b3242] text-xs font-semibold tracking-[0.12em] text-white uppercase shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)]"
                         : "h-10 rounded-xl border border-border bg-white/90 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase transition hover:bg-white"
                     }
                   >
@@ -306,6 +317,30 @@ export function EmsReportsPanel({
                 )}
               </ResponsiveContainer>
             </div>
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <p>
+                Showing logs {scopedRows.length === 0 ? 0 : start + 1}-{end} of {scopedRows.length} (last {LOG_SCOPE_LIMIT})
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChartPage((prev) => Math.min(prev + 1, totalPages - 1))}
+                  disabled={activePage >= totalPages - 1}
+                  className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartPage((prev) => Math.max(prev - 1, 0))}
+                  disabled={activePage === 0}
+                  className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Window: {LOG_WINDOW_SIZE} logs per page</p>
           </div>
         </article>
 
@@ -352,7 +387,7 @@ export function EmsReportsPanel({
               <button
                 type="button"
                 onClick={onExportPdf}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-xs font-semibold tracking-[0.12em] text-white uppercase shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)]"
+                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2b3242] text-xs font-semibold tracking-[0.12em] text-white uppercase shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)]"
               >
                 <FileText className="h-4 w-4" />
                 Download PDF

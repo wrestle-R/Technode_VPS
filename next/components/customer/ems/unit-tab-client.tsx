@@ -23,6 +23,8 @@ import type {
   CustomerUnitDetail,
   ReportRange,
   ReportType,
+  SummaryRange,
+  SummaryStats,
 } from "@/components/customer/ems/types"
 
 export function CustomerUnitTabClient({
@@ -40,11 +42,19 @@ export function CustomerUnitTabClient({
   const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("overview")
   const [reportRange, setReportRange] = useState<ReportRange>("24h")
   const [reportType, setReportType] = useState<ReportType>("raw")
-  const [summaryRange, setSummaryRange] = useState<"24h" | "7d" | "30d">("7d")
+  const [summaryRange, setSummaryRange] = useState<SummaryRange>("7d")
+  const [summary, setSummary] = useState<SummaryStats>({
+    voltage: { max: null, min: null, avg: null },
+    current: { max: null, min: null, avg: null },
+    power: { max: null, min: null, avg: null },
+    powerFactor: { max: null, min: null, avg: null },
+  })
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(
     undefined
   )
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(
+    undefined
+  )
   const [hasRefreshError, setHasRefreshError] = useState(false)
 
   useEffect(() => {
@@ -195,56 +205,41 @@ export function CustomerUnitTabClient({
     }
   }, [frequency, trendRows])
 
-  const summary = useMemo(() => {
-    const scopedRows =
-      summaryRange === "24h"
-        ? trendRows.slice(-24)
-        : summaryRange === "7d"
-          ? trendRows.slice(-7 * 24)
-          : trendRows.slice(-30 * 24)
+  useEffect(() => {
+    let cancelled = false
 
-    const voltageRows = scopedRows
-      .map((row) => average([row.VRY as number | null, row.VYB as number | null, row.VBR as number | null]))
-      .filter((value): value is number => value != null)
+    async function loadSummary() {
+      if (!effectiveRtuKey) {
+        return
+      }
 
-    const currentRows = scopedRows
-      .map((row) => average([row.IR as number | null, row.IY as number | null, row.IB as number | null]))
-      .filter((value): value is number => value != null)
+      try {
+        const response = await fetch(
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/summary?range=${summaryRange}&rtuKey=${encodeURIComponent(effectiveRtuKey)}`,
+          {
+            cache: "no-store",
+          }
+        )
 
-    const powerRows = scopedRows
-      .map((row) => {
-        const kwr = row["KW-R"]
-        const kwy = row["KW-Y"]
-        const kwb = row["KW-B"]
-        if (typeof kwr !== "number" || typeof kwy !== "number" || typeof kwb !== "number") {
-          return null
+        if (!response.ok) {
+          return
         }
-        return kwr + kwy + kwb
-      })
-      .filter((value): value is number => value != null)
 
-    const powerFactorRows = scopedRows
-      .map((row) => average([row["PF-R"] as number | null, row["PF-Y"] as number | null, row["PF-B"] as number | null]))
-      .filter((value): value is number => value != null)
-
-    function stats(values: number[]) {
-      if (values.length === 0) {
-        return { max: null, min: null, avg: null }
-      }
-      return {
-        max: Math.max(...values),
-        min: Math.min(...values),
-        avg: values.reduce((sum, value) => sum + value, 0) / values.length,
+        const data = (await response.json()) as { summary?: SummaryStats }
+        if (!cancelled && data.summary) {
+          setSummary(data.summary)
+        }
+      } catch {
+        return
       }
     }
 
-    return {
-      voltage: stats(voltageRows),
-      current: stats(currentRows),
-      power: stats(powerRows),
-      powerFactor: stats(powerFactorRows),
+    void loadSummary()
+
+    return () => {
+      cancelled = true
     }
-  }, [summaryRange, trendRows])
+  }, [effectiveRtuKey, summaryRange, unit.unitId])
 
   const kwhDelta = useMemo(() => {
     const values = trendRows

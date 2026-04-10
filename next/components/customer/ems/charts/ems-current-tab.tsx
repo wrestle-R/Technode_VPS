@@ -19,12 +19,17 @@ import {
 } from "recharts"
 
 import {
+  chartGradients,
   formatNumber,
+  getPagedTrendRows,
   gradientCardClassName,
+  LOG_SCOPE_LIMIT,
+  LOG_WINDOW_SIZE,
   metricValueFromLatest,
   phaseColors,
 } from "@/components/customer/ems/helpers"
 import type { TrendPoint } from "@/components/customer/ems/types"
+import { useState } from "react"
 
 const GAUGE_MAX_CURRENT = 180
 
@@ -37,7 +42,10 @@ function buildHourlyAverageCurrent24Bars(trendRows: TrendPoint[]) {
     slot.setHours(slot.getHours() - (23 - index))
     return {
       key: slot.getTime(),
-      label: slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      label: slot.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
       values: [] as number[],
     }
   })
@@ -56,18 +64,23 @@ function buildHourlyAverageCurrent24Bars(trendRows: TrendPoint[]) {
     const ir = typeof row.IR === "number" ? row.IR : null
     const iy = typeof row.IY === "number" ? row.IY : null
     const ib = typeof row.IB === "number" ? row.IB : null
-    const available = [ir, iy, ib].filter((value): value is number => value != null)
+    const available = [ir, iy, ib].filter(
+      (value): value is number => value != null
+    )
     if (available.length === 0) {
       continue
     }
-    slot.values.push(available.reduce((sum, value) => sum + value, 0) / available.length)
+    slot.values.push(
+      available.reduce((sum, value) => sum + value, 0) / available.length
+    )
   }
 
   return hourSlots.map((slot) => {
     const averageCurrent =
       slot.values.length === 0
         ? 0
-        : slot.values.reduce((sum, value) => sum + value, 0) / slot.values.length
+        : slot.values.reduce((sum, value) => sum + value, 0) /
+          slot.values.length
 
     return {
       hour: slot.label,
@@ -95,7 +108,9 @@ function CurrentGauge({
 
   return (
     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
-      <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+        {label}
+      </p>
       <div className="relative mt-2 h-44">
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart
@@ -117,11 +132,19 @@ function CurrentGauge({
               tick={{ fontSize: 10, fill: "#6b7280" }}
             />
             <PolarRadiusAxis tick={false} axisLine={false} />
-            <RadialBar dataKey="value" cornerRadius={8} fill="#e5e7eb" background />
+            <RadialBar
+              dataKey="value"
+              cornerRadius={8}
+              fill="#e5e7eb"
+              background
+            />
           </RadialBarChart>
         </ResponsiveContainer>
 
-        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 200 160">
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          viewBox="0 0 200 160"
+        >
           <line
             x1={100}
             y1={100}
@@ -143,6 +166,8 @@ function CurrentGauge({
 }
 
 export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
+  const [page, setPage] = useState(0)
+  const pageData = getPagedTrendRows(trendRows, page)
   const latestIR = metricValueFromLatest(trendRows, "IR") ?? 0
   const latestIY = metricValueFromLatest(trendRows, "IY") ?? 0
   const latestIB = metricValueFromLatest(trendRows, "IB") ?? 0
@@ -159,17 +184,77 @@ export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
           <p className="text-sm font-semibold">Current Trend</p>
           <div className="mt-3 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendRows.slice(-40)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.45} />
+              <LineChart data={pageData.rows}>
+                <defs>
+                  <linearGradient
+                    id="current-ib-line"
+                    x1="0"
+                    y1="0"
+                    x2="1"
+                    y2="0"
+                  >
+                    <stop offset="0%" stopColor={chartGradients.blue.from} />
+                    <stop offset="100%" stopColor={chartGradients.blue.to} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#cbd5e1"
+                  strokeOpacity={0.45}
+                />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="IR" stroke={phaseColors.red} dot={false} strokeWidth={2} />
-                <Line type="monotone" dataKey="IY" stroke={phaseColors.amber} dot={false} strokeWidth={2} />
-                <Line type="monotone" dataKey="IB" stroke={phaseColors.blue} dot={false} strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="IR"
+                  stroke={phaseColors.red}
+                  dot={false}
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="IY"
+                  stroke={phaseColors.amber}
+                  dot={false}
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="IB"
+                  stroke="url(#current-ib-line)"
+                  dot={false}
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+            <p>
+              Showing logs {pageData.from}-{pageData.to} of {pageData.total}{" "}
+              (last {LOG_SCOPE_LIMIT})
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setPage((prev) => Math.min(prev + 1, pageData.totalPages - 1))
+                }
+                disabled={pageData.activePage >= pageData.totalPages - 1}
+                className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                disabled={pageData.activePage === 0}
+                className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -179,25 +264,42 @@ export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
           <p className="text-sm font-semibold">Latest Phase Currents</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             <CurrentGauge label="IR" value={latestIR} color={phaseColors.red} />
-            <CurrentGauge label="IY" value={latestIY} color={phaseColors.amber} />
-            <CurrentGauge label="IB" value={latestIB} color={phaseColors.blue} />
+            <CurrentGauge
+              label="IY"
+              value={latestIY}
+              color={phaseColors.amber}
+            />
+            <CurrentGauge
+              label="IB"
+              value={latestIB}
+              color={phaseColors.blue}
+            />
           </div>
         </div>
       </article>
 
       <article className={gradientCardClassName("xl:col-span-2")}>
         <div className="rounded-[15px] bg-card p-4">
-          <p className="text-sm font-semibold">Hourly Average Current (Last 24 Hours)</p>
-          <p className="text-xs text-muted-foreground">Average of IR, IY, IB per hour (24 bars)</p>
+          <p className="text-sm font-semibold">
+            Hourly Average Current (Last 24 Hours)
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Average of IR, IY, IB per hour (24 bars)
+          </p>
           <div className="mt-3 h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourlyAverages}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.45} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#cbd5e1"
+                  strokeOpacity={0.45}
+                />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} interval={1} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
                   formatter={(value) => {
-                    const numeric = typeof value === "number" ? value : Number(value ?? 0)
+                    const numeric =
+                      typeof value === "number" ? value : Number(value ?? 0)
                     return `${formatNumber(numeric, 2)} A`
                   }}
                 />
@@ -205,13 +307,18 @@ export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
                   {hourlyAverages.map((_, index) => (
                     <Cell
                       key={`hour-bar-${index}`}
-                      fill={index % 2 === 0 ? phaseColors.indigo : phaseColors.cyan}
+                      fill={
+                        index % 2 === 0 ? phaseColors.indigo : phaseColors.cyan
+                      }
                     />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Line-chart window: {LOG_WINDOW_SIZE} logs per page
+          </p>
         </div>
       </article>
     </motion.div>
