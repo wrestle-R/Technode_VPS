@@ -56,6 +56,17 @@ export type SummaryStats = {
 
 export type SummaryRange = "24h" | "7d" | "30d"
 
+export type HourlyCurrentPoint = {
+  timestamp: string
+  hour: string
+  averageCurrent: number | null
+}
+
+export type HourlyCurrentStats = {
+  points: HourlyCurrentPoint[]
+  computedAt: string
+}
+
 export type ChartTab =
   | "overview"
   | "voltage"

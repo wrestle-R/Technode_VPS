@@ -5,20 +5,20 @@ export const phaseColors = {
   amber: "#f59e0b",
   green: "#22c55e",
   blue: "#2b3242",
-  blueLight: "#3b4356",
+  blueLight: "#2f3544",
   indigo: "#6366f1",
   cyan: "#06b6d4",
 }
 
 export const chartGradients = {
   blue: {
-    from: phaseColors.blue,
-    to: phaseColors.blueLight,
+    from: "#2f3544",
+    to: "#2b3242",
   },
 }
 
 export const LOG_WINDOW_SIZE = 30
-export const LOG_SCOPE_LIMIT = 50
+export const LOG_SCOPE_LIMIT = 500
 
 export function getPagedTrendRows(rows: TrendPoint[], page: number) {
   const scoped = rows.slice(-LOG_SCOPE_LIMIT)

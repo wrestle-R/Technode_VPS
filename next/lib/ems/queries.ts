@@ -12,6 +12,9 @@ function asNumber(value: { toString(): string } | null | undefined) {
   return value ? Number(value.toString()) : null
 }
 
+const UNIT_DETAIL_LOG_LIMIT = 500
+const ONLINE_TIMEOUT_MS = 5 * 60 * 1000
+
 function readScalingFactor(unit: Record<string, unknown>) {
   const raw =
     typeof unit.scalingFactor === "number"
@@ -23,13 +26,32 @@ function readScalingFactor(unit: Record<string, unknown>) {
   return Number.isFinite(raw) ? raw : 1
 }
 
-function inferStatus(_rawPayload: unknown, lastSeenAt: Date | null) {
+function inferStatus(rawPayload: unknown, lastSeenAt: Date | null) {
   if (!lastSeenAt) {
     return "Unknown"
   }
 
   const ageMs = Date.now() - lastSeenAt.getTime()
-  return ageMs <= 60 * 1000 ? "Online" : "Offline"
+  if (ageMs > ONLINE_TIMEOUT_MS) {
+    return "Offline"
+  }
+
+  const payloadStatus =
+    rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload)
+      ? (rawPayload as { Status?: unknown }).Status
+      : null
+
+  if (typeof payloadStatus === "string") {
+    const normalized = payloadStatus.trim().toLowerCase()
+    if (normalized === "online") {
+      return "Online"
+    }
+    if (normalized === "offline") {
+      return "Offline"
+    }
+  }
+
+  return "Offline"
 }
 
 function getFieldTemplateForRtu({
@@ -335,7 +357,7 @@ export async function getAdminEmsUnit(unitId: string) {
       },
       logs: {
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: 20,
+        take: UNIT_DETAIL_LOG_LIMIT,
       },
     },
   })
@@ -445,7 +467,7 @@ export async function getCustomerEmsUnitDetail({
     include: {
       logs: {
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: 20,
+        take: UNIT_DETAIL_LOG_LIMIT,
       },
     },
   })
@@ -614,5 +636,127 @@ export async function getCustomerEmsSummaryStats({
     current: stats(currentRows),
     power: stats(powerRows),
     powerFactor: stats(powerFactorRows),
+  }
+}
+
+export async function getCustomerEmsCurrentHourlyStats({
+  customerId,
+  unitId,
+  rtuKey,
+}: {
+  customerId: number
+  unitId: string
+  rtuKey: string
+}) {
+  const unit = await prisma.emsUnit.findFirst({
+    where: {
+      unit_id: unitId,
+      customer_id: customerId,
+    },
+    select: {
+      id: true,
+      unit_field_template: true,
+      rtu_overrides: true,
+      scalingFactor: true,
+    },
+  })
+
+  if (!unit) {
+    return null
+  }
+
+  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
+  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
+
+  const now = new Date()
+  const currentHour = new Date(now)
+  currentHour.setMinutes(0, 0, 0)
+  const startAt = new Date(currentHour)
+  startAt.setHours(startAt.getHours() - 23)
+
+  const logs = await prisma.emsLog.findMany({
+    where: {
+      ems_unit_id: unit.id,
+      device_timestamp: {
+        gte: startAt,
+      },
+    },
+    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
+    select: {
+      device_timestamp: true,
+      raw_rtu_array: true,
+    },
+  })
+
+  const hourlySlots = Array.from({ length: 24 }, (_, index) => {
+    const hourStart = new Date(startAt)
+    hourStart.setHours(startAt.getHours() + index)
+    return {
+      key: hourStart.getTime(),
+      timestamp: hourStart.toISOString(),
+      hour: hourStart.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      values: [] as number[],
+    }
+  })
+
+  const slotByTime = new Map(hourlySlots.map((slot) => [slot.key, slot]))
+
+  for (const log of logs) {
+    const mappedRtus = formatMappedArray(
+      log.raw_rtu_array,
+      unitTemplate,
+      overrides,
+      scalingFactor
+    )
+
+    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
+    if (!rtu) {
+      continue
+    }
+
+    const metricMap = new Map(
+      rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
+    )
+    const ir = metricMap.get("IR")
+    const iy = metricMap.get("IY")
+    const ib = metricMap.get("IB")
+    const available = [ir, iy, ib].filter(
+      (value): value is number => value != null
+    )
+
+    if (available.length === 0) {
+      continue
+    }
+
+    const hourStart = new Date(log.device_timestamp)
+    hourStart.setMinutes(0, 0, 0)
+    const slot = slotByTime.get(hourStart.getTime())
+
+    if (!slot) {
+      continue
+    }
+
+    const averageCurrent =
+      available.reduce((sum, value) => sum + value, 0) / available.length
+    slot.values.push(averageCurrent)
+  }
+
+  return {
+    points: hourlySlots.map((slot) => ({
+      timestamp: slot.timestamp,
+      hour: slot.hour,
+      averageCurrent:
+        slot.values.length > 0
+          ? slot.values.reduce((sum, value) => sum + value, 0) /
+            slot.values.length
+          : null,
+    })),
+    computedAt: new Date().toISOString(),
   }
 }

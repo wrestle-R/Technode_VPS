@@ -21,6 +21,7 @@ import { useUser } from "@/contexts/user-context"
 import type {
   ChartTab,
   CustomerUnitDetail,
+  HourlyCurrentStats,
   ReportRange,
   ReportType,
   SummaryRange,
@@ -56,6 +57,10 @@ export function CustomerUnitTabClient({
     undefined
   )
   const [hasRefreshError, setHasRefreshError] = useState(false)
+  const [hourlyCurrent, setHourlyCurrent] = useState<HourlyCurrentStats>({
+    points: [],
+    computedAt: new Date(0).toISOString(),
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -79,7 +84,16 @@ export function CustomerUnitTabClient({
         const data = (await response.json()) as { unit?: CustomerUnitDetail }
         const nextUnit = data.unit
         if (!cancelled && nextUnit) {
-          setUnit(nextUnit)
+          setUnit((current) => {
+            const currentLatestLogId = current.logs[0]?.id ?? null
+            const nextLatestLogId = nextUnit.logs[0]?.id ?? null
+            const hasNewLog = currentLatestLogId !== nextLatestLogId
+            const hasStatusChange =
+              current.status !== nextUnit.status ||
+              current.lastSeenAt !== nextUnit.lastSeenAt
+
+            return hasNewLog || hasStatusChange ? nextUnit : current
+          })
           setSelectedRtuKey(
             (current) => current || nextUnit.latestRtus[0]?.rtuKey || ""
           )
@@ -98,7 +112,7 @@ export function CustomerUnitTabClient({
 
     const interval = window.setInterval(() => {
       void load()
-    }, 20_000)
+    }, 30_000)
 
     return () => {
       cancelled = true
@@ -209,6 +223,10 @@ export function CustomerUnitTabClient({
     let cancelled = false
 
     async function loadSummary() {
+      if (tab !== "charts" || selectedChartTab !== "overview") {
+        return
+      }
+
       if (!effectiveRtuKey) {
         return
       }
@@ -239,7 +257,58 @@ export function CustomerUnitTabClient({
     return () => {
       cancelled = true
     }
-  }, [effectiveRtuKey, summaryRange, unit.unitId])
+  }, [effectiveRtuKey, selectedChartTab, summaryRange, tab, unit.unitId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadHourlyCurrent() {
+      if (tab !== "charts" || selectedChartTab !== "current") {
+        return
+      }
+
+      if (!effectiveRtuKey) {
+        setHourlyCurrent({ points: [], computedAt: new Date().toISOString() })
+        return
+      }
+
+      try {
+        const response = await fetch(
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/current-hourly?rtuKey=${encodeURIComponent(effectiveRtuKey)}`,
+          {
+            cache: "no-store",
+          }
+        )
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = (await response.json()) as { hourly?: HourlyCurrentStats }
+        if (!cancelled && data.hourly) {
+          setHourlyCurrent(data.hourly)
+        }
+      } catch {
+        return
+      }
+    }
+
+    void loadHourlyCurrent()
+
+    const interval =
+      tab === "charts" && selectedChartTab === "current"
+        ? window.setInterval(() => {
+            void loadHourlyCurrent()
+          }, 30_000)
+        : null
+
+    return () => {
+      cancelled = true
+      if (interval) {
+        window.clearInterval(interval)
+      }
+    }
+  }, [effectiveRtuKey, selectedChartTab, tab, unit.unitId])
 
   const kwhDelta = useMemo(() => {
     const values = trendRows
@@ -275,6 +344,8 @@ export function CustomerUnitTabClient({
     }
     return trendRows.slice(-30 * 24)
   }, [customEndDate, customStartDate, reportRange, trendRows])
+
+  const latestSelectedLogTimestamp = selectedLogRows[0]?.deviceTimestamp ?? null
 
   function exportCsv() {
     if (reportRows.length === 0) {
@@ -352,6 +423,14 @@ export function CustomerUnitTabClient({
               <p className="text-sm text-muted-foreground">
                 Live meter analytics with real-time trend panels.
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Last updated:{" "}
+                {latestSelectedLogTimestamp
+                  ? new Date(latestSelectedLogTimestamp).toLocaleString()
+                  : unit.lastSeenAt
+                    ? new Date(unit.lastSeenAt).toLocaleString()
+                    : "Never"}
+              </p>
             </div>
             <label className="grid gap-2 text-sm sm:min-w-56">
               <span className="font-medium">Meter</span>
@@ -390,7 +469,10 @@ export function CustomerUnitTabClient({
           />
         ) : null}
         {selectedChartTab === "current" ? (
-          <EmsCurrentTab trendRows={trendRows} />
+          <EmsCurrentTab
+            trendRows={trendRows}
+            hourlyCurrentPoints={hourlyCurrent.points}
+          />
         ) : null}
         {selectedChartTab === "energy" ? (
           <EmsEnergyTab trendRows={trendRows} kwhDelta={kwhDelta} />

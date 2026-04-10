@@ -28,66 +28,13 @@ import {
   metricValueFromLatest,
   phaseColors,
 } from "@/components/customer/ems/helpers"
-import type { TrendPoint } from "@/components/customer/ems/types"
-import { useState } from "react"
+import type {
+  HourlyCurrentPoint,
+  TrendPoint,
+} from "@/components/customer/ems/types"
+import { useMemo, useState } from "react"
 
 const GAUGE_MAX_CURRENT = 180
-
-function buildHourlyAverageCurrent24Bars(trendRows: TrendPoint[]) {
-  const now = new Date()
-  const currentHour = new Date(now)
-  currentHour.setMinutes(0, 0, 0)
-  const hourSlots = Array.from({ length: 24 }, (_, index) => {
-    const slot = new Date(currentHour)
-    slot.setHours(slot.getHours() - (23 - index))
-    return {
-      key: slot.getTime(),
-      label: slot.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      values: [] as number[],
-    }
-  })
-
-  const slotMap = new Map(hourSlots.map((slot) => [slot.key, slot]))
-
-  for (const row of trendRows) {
-    const timestamp = new Date(row.timestamp)
-    const slotTime = new Date(timestamp)
-    slotTime.setMinutes(0, 0, 0)
-    const slot = slotMap.get(slotTime.getTime())
-    if (!slot) {
-      continue
-    }
-
-    const ir = typeof row.IR === "number" ? row.IR : null
-    const iy = typeof row.IY === "number" ? row.IY : null
-    const ib = typeof row.IB === "number" ? row.IB : null
-    const available = [ir, iy, ib].filter(
-      (value): value is number => value != null
-    )
-    if (available.length === 0) {
-      continue
-    }
-    slot.values.push(
-      available.reduce((sum, value) => sum + value, 0) / available.length
-    )
-  }
-
-  return hourSlots.map((slot) => {
-    const averageCurrent =
-      slot.values.length === 0
-        ? 0
-        : slot.values.reduce((sum, value) => sum + value, 0) /
-          slot.values.length
-
-    return {
-      hour: slot.label,
-      averageCurrent,
-    }
-  })
-}
 
 function CurrentGauge({
   label,
@@ -165,13 +112,29 @@ function CurrentGauge({
   )
 }
 
-export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
+export function EmsCurrentTab({
+  trendRows,
+  hourlyCurrentPoints,
+}: {
+  trendRows: TrendPoint[]
+  hourlyCurrentPoints: HourlyCurrentPoint[]
+}) {
   const [page, setPage] = useState(0)
   const pageData = getPagedTrendRows(trendRows, page)
   const latestIR = metricValueFromLatest(trendRows, "IR") ?? 0
   const latestIY = metricValueFromLatest(trendRows, "IY") ?? 0
   const latestIB = metricValueFromLatest(trendRows, "IB") ?? 0
-  const hourlyAverages = buildHourlyAverageCurrent24Bars(trendRows)
+  const hourlyAverages = useMemo(
+    () =>
+      hourlyCurrentPoints.map((point) => ({
+        hour: point.hour,
+        averageCurrent: point.averageCurrent,
+      })),
+    [hourlyCurrentPoints]
+  )
+  const hasHourlyData = hourlyCurrentPoints.some(
+    (point) => typeof point.averageCurrent === "number"
+  )
 
   return (
     <motion.div
@@ -298,8 +261,10 @@ export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
                   formatter={(value) => {
-                    const numeric =
-                      typeof value === "number" ? value : Number(value ?? 0)
+                    if (typeof value !== "number" || Number.isNaN(value)) {
+                      return "-"
+                    }
+                    const numeric = value
                     return `${formatNumber(numeric, 2)} A`
                   }}
                 />
@@ -319,6 +284,11 @@ export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
           <p className="mt-2 text-[11px] text-muted-foreground">
             Line-chart window: {LOG_WINDOW_SIZE} logs per page
           </p>
+          {!hasHourlyData ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              No current data available in the last 24 hours for this meter.
+            </p>
+          ) : null}
         </div>
       </article>
     </motion.div>
