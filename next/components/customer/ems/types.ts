@@ -41,8 +41,13 @@ export type TrendPoint = {
   [key: string]: number | string | null
 }
 
-export type ChartTab = "voltage" | "current" | "energy" | "diagnostic"
+export type ChartTab =
+  | "overview"
+  | "voltage"
+  | "current"
+  | "energy"
+  | "diagnostic"
 
-export type ReportRange = "24h" | "7d" | "30d"
+export type ReportRange = "24h" | "7d" | "30d" | "custom"
 
 export type ReportType = "raw" | "analytical" | "consumption"

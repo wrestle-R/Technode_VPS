@@ -329,6 +329,9 @@ export async function getCustomerEmsUnits(customerId: number) {
       unitId: unit.unit_id,
       status: inferStatus(latestLog?.raw_unit_payload, unit.last_seen_at ?? null),
       locationLabel: unit.location_label,
+      latitude: asNumber(unit.latitude),
+      longitude: asNumber(unit.longitude),
+      deviceType: unit.device_type,
       lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
       slaveCount: mappedRtus.length,
     }

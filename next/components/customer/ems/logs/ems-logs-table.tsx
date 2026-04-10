@@ -25,7 +25,7 @@ export function EmsLogsTable({
         <label className="grid gap-2 text-sm sm:max-w-xs">
           <span className="font-medium">Meter</span>
           <select
-            className="h-10 rounded-xl border border-input bg-background px-3"
+            className="h-10 rounded-xl border border-input bg-white/90 px-3"
             value={effectiveRtuKey}
             onChange={(event) => onRtuChange(event.target.value)}
           >
@@ -40,7 +40,7 @@ export function EmsLogsTable({
 
       <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
         <table className="min-w-full divide-y divide-border text-sm">
-          <thead className="bg-muted/50">
+          <thead className="bg-white/60">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Timestamp</th>
               {metricColumns.map((metric) => (

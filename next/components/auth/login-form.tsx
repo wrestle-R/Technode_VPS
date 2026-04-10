@@ -52,6 +52,7 @@ export function LoginForm({
         return
       }
 
+      toast.success("Signed in successfully")
       router.push("/dashboard")
       router.refresh()
     } catch {

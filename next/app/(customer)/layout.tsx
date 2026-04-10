@@ -28,6 +28,7 @@ export default async function CustomerLayout({ children }: { children: ReactNode
         customerRepresentative: session.customerRepresentative,
         email: session.email,
         companyName: session.companyName,
+        companyLoginImageUrl: session.companyLoginImageUrl,
         companySidebarImageUrl: session.companySidebarImageUrl,
         companyBrowserIconUrl: session.companyBrowserIconUrl,
       }}

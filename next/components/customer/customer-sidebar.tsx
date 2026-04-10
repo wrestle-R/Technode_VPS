@@ -74,6 +74,9 @@ export function CustomerSidebar({
     return deviceType === "ems" ? Zap : Cpu
   }
 
+  const chartHrefForUnit = (unitId: string) =>
+    `/devices/ems/${encodeURIComponent(unitId)}/charts`
+
   const isActive = (url: string, hasChildren = false) => {
     if (pathname === url) return true
     if (hasChildren) return pathname.startsWith(url + "/")
@@ -95,12 +98,12 @@ export function CustomerSidebar({
       collapsible="icon"
       className="[&_[data-sidebar=sidebar]]:scrollbar-thin [&_[data-sidebar=sidebar]]:scrollbar-track-transparent [&_[data-sidebar=sidebar]]:scrollbar-thumb-border/40 hover:[&_[data-sidebar=sidebar]]:scrollbar-thumb-border/60 [&_[data-sidebar=sidebar]]:scrollbar-thumb-rounded-full"
     >
-      <SidebarContent>
-        <SidebarGroup>
+      <SidebarContent className="gap-0">
+        <SidebarGroup className="pb-1">
           {state === "expanded" && (
             <Link
               href="/dashboard"
-              className="mx-3 mt-3 mb-4 flex items-center justify-center rounded-[26px] border border-white/10 bg-white/8 px-4 py-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.85)]"
+              className="mx-3 mt-1 flex items-center justify-center rounded-[26px] border border-white/10 bg-white/8 px-4 py-3 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.85)]"
             >
               <Image
                 src={companySidebarImageUrl}
@@ -115,7 +118,7 @@ export function CustomerSidebar({
           )}
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup className="py-2">
           <SidebarGroupLabel className="text-xs font-semibold tracking-[0.2em] text-sky-100/55 uppercase">
             Main
           </SidebarGroupLabel>
@@ -140,7 +143,7 @@ export function CustomerSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup className="pt-0 pb-1">
           <SidebarGroupLabel className="text-xs font-semibold tracking-[0.2em] text-sky-100/55 uppercase">
             Devices
           </SidebarGroupLabel>
@@ -164,10 +167,11 @@ export function CustomerSidebar({
                       className="group/unit"
                     >
                       <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
+                        <div className="flex items-center gap-1">
                           <SidebarMenuButton
                             isActive={pathname.includes(`/ems/${unit.unitId}`)}
                             tooltip={unit.unitId}
+                            onClick={() => router.push(chartHrefForUnit(unit.unitId))}
                             className={cn(
                               "cursor-pointer",
                               state === "expanded" &&
@@ -191,20 +195,27 @@ export function CustomerSidebar({
                                 {formatUnitId(unit.unitId)}
                               </span>
                             </span>
-                            <div className="flex items-center gap-1">
-                              {state === "expanded" && (
-                                <>
-                                  {unit.status?.toLowerCase() === "online" ? (
-                                    <Wifi className="h-3 w-3 text-emerald-400" />
-                                  ) : (
-                                    <WifiOff className="h-3 w-3 text-rose-400" />
-                                  )}
-                                </>
-                              )}
-                              <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
-                            </div>
+                            {state === "expanded" && (
+                              <>
+                                {unit.status?.toLowerCase() === "online" ? (
+                                  <Wifi className="h-3 w-3 text-emerald-400" />
+                                ) : (
+                                  <WifiOff className="h-3 w-3 text-rose-400" />
+                                )}
+                              </>
+                            )}
                           </SidebarMenuButton>
-                        </CollapsibleTrigger>
+
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sky-100/70 transition hover:bg-white/12 hover:text-white"
+                              aria-label={`Toggle ${unit.unitId} menu`}
+                            >
+                              <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
+                            </button>
+                          </CollapsibleTrigger>
+                        </div>
 
                         <CollapsibleContent>
                           <AnimatePresence>

@@ -65,6 +65,7 @@ export function CustomerCreateForm({
       }
 
       setSuccess("Customer created successfully.")
+      toast.success("Customer created successfully")
       setForm(initialState)
     } catch {
       const message = "Unable to connect to customer API."

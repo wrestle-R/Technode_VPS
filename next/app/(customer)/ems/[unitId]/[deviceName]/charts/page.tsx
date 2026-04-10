@@ -5,6 +5,6 @@ export default async function ChartsPage({
 }: {
   params: Promise<{ unitId: string; deviceName: string }>
 }) {
-  const { unitId } = await params
-  redirect(`/devices/ems/${encodeURIComponent(unitId)}/charts`)
+  const { unitId, deviceName } = await params
+  redirect(`/devices/ems/${encodeURIComponent(unitId)}/charts?meter=${encodeURIComponent(deviceName)}`)
 }

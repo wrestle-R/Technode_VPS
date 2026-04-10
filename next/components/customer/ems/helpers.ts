@@ -91,11 +91,11 @@ export function formatNumber(value: number | null, digits = 2) {
 }
 
 export function gradientCardClassName(extra?: string) {
-  return `rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 p-[1px] shadow-[0_18px_36px_-24px_rgba(15,23,42,0.7)] ${extra ?? ""}`
+  return `rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 p-[1px] shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)] ${extra ?? ""}`
 }
 
 export function reportsGradientCardClassName(extra?: string) {
-  return `rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-[1px] shadow-[0_18px_36px_-24px_rgba(15,23,42,0.7)] ${extra ?? ""}`
+  return `rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 p-[1px] shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)] ${extra ?? ""}`
 }
 
 export function statusClasses(status: string) {

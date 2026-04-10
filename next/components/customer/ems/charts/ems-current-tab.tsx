@@ -7,6 +7,11 @@ import {
   Legend,
   Line,
   LineChart,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  RadialBar,
+  RadialBarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,13 +19,135 @@ import {
 } from "recharts"
 
 import {
+  formatNumber,
   gradientCardClassName,
   metricValueFromLatest,
   phaseColors,
 } from "@/components/customer/ems/helpers"
 import type { TrendPoint } from "@/components/customer/ems/types"
 
+const GAUGE_MAX_CURRENT = 180
+
+function buildHourlyAverageCurrent24Bars(trendRows: TrendPoint[]) {
+  const now = new Date()
+  const currentHour = new Date(now)
+  currentHour.setMinutes(0, 0, 0)
+  const hourSlots = Array.from({ length: 24 }, (_, index) => {
+    const slot = new Date(currentHour)
+    slot.setHours(slot.getHours() - (23 - index))
+    return {
+      key: slot.getTime(),
+      label: slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      values: [] as number[],
+    }
+  })
+
+  const slotMap = new Map(hourSlots.map((slot) => [slot.key, slot]))
+
+  for (const row of trendRows) {
+    const timestamp = new Date(row.timestamp)
+    const slotTime = new Date(timestamp)
+    slotTime.setMinutes(0, 0, 0)
+    const slot = slotMap.get(slotTime.getTime())
+    if (!slot) {
+      continue
+    }
+
+    const ir = typeof row.IR === "number" ? row.IR : null
+    const iy = typeof row.IY === "number" ? row.IY : null
+    const ib = typeof row.IB === "number" ? row.IB : null
+    const available = [ir, iy, ib].filter((value): value is number => value != null)
+    if (available.length === 0) {
+      continue
+    }
+    slot.values.push(available.reduce((sum, value) => sum + value, 0) / available.length)
+  }
+
+  return hourSlots.map((slot) => {
+    const averageCurrent =
+      slot.values.length === 0
+        ? 0
+        : slot.values.reduce((sum, value) => sum + value, 0) / slot.values.length
+
+    return {
+      hour: slot.label,
+      averageCurrent,
+    }
+  })
+}
+
+function CurrentGauge({
+  label,
+  value,
+  color,
+}: {
+  label: "IR" | "IY" | "IB"
+  value: number
+  color: string
+}) {
+  const clamped = Math.max(0, Math.min(value, GAUGE_MAX_CURRENT))
+  const angle = 180 - (clamped / GAUGE_MAX_CURRENT) * 180
+  const radius = 68
+  const center = 100
+  const angleInRadian = (Math.PI / 180) * angle
+  const needleX = center + radius * Math.cos(angleInRadian)
+  const needleY = center - radius * Math.sin(angleInRadian)
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
+      <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">{label}</p>
+      <div className="relative mt-2 h-44">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadialBarChart
+            cx="50%"
+            cy="60%"
+            innerRadius="70%"
+            outerRadius="100%"
+            barSize={14}
+            data={[{ value: GAUGE_MAX_CURRENT }]}
+            startAngle={180}
+            endAngle={0}
+          >
+            <PolarGrid radialLines={false} stroke="#d1d5db" />
+            <PolarAngleAxis
+              type="number"
+              domain={[0, GAUGE_MAX_CURRENT]}
+              tickCount={5}
+              angleAxisId={0}
+              tick={{ fontSize: 10, fill: "#6b7280" }}
+            />
+            <PolarRadiusAxis tick={false} axisLine={false} />
+            <RadialBar dataKey="value" cornerRadius={8} fill="#e5e7eb" background />
+          </RadialBarChart>
+        </ResponsiveContainer>
+
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 200 160">
+          <line
+            x1={100}
+            y1={100}
+            x2={needleX}
+            y2={needleY}
+            stroke={color}
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <circle cx={100} cy={100} r={6} fill={color} />
+        </svg>
+
+        <div className="absolute right-0 bottom-0 left-0 text-center">
+          <p className="text-2xl font-semibold">{formatNumber(value, 2)} A</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
+  const latestIR = metricValueFromLatest(trendRows, "IR") ?? 0
+  const latestIY = metricValueFromLatest(trendRows, "IY") ?? 0
+  const latestIB = metricValueFromLatest(trendRows, "IB") ?? 0
+  const hourlyAverages = buildHourlyAverageCurrent24Bars(trendRows)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -33,77 +160,54 @@ export function EmsCurrentTab({ trendRows }: { trendRows: TrendPoint[] }) {
           <div className="mt-3 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendRows.slice(-40)}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#cbd5e1"
-                  strokeOpacity={0.45}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.45} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="IR"
-                  stroke={phaseColors.red}
-                  dot={false}
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="IY"
-                  stroke={phaseColors.amber}
-                  dot={false}
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="IB"
-                  stroke={phaseColors.blue}
-                  dot={false}
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="IR" stroke={phaseColors.red} dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="IY" stroke={phaseColors.amber} dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="IB" stroke={phaseColors.blue} dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
       </article>
+
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Latest Phase Currents</p>
-          <div className="mt-3 h-72">
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <CurrentGauge label="IR" value={latestIR} color={phaseColors.red} />
+            <CurrentGauge label="IY" value={latestIY} color={phaseColors.amber} />
+            <CurrentGauge label="IB" value={latestIB} color={phaseColors.blue} />
+          </div>
+        </div>
+      </article>
+
+      <article className={gradientCardClassName("xl:col-span-2")}>
+        <div className="rounded-[15px] bg-card p-4">
+          <p className="text-sm font-semibold">Hourly Average Current (Last 24 Hours)</p>
+          <p className="text-xs text-muted-foreground">Average of IR, IY, IB per hour (24 bars)</p>
+          <div className="mt-3 h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  {
-                    phase: "IR",
-                    value: metricValueFromLatest(trendRows, "IR") ?? 0,
-                    color: phaseColors.red,
-                  },
-                  {
-                    phase: "IY",
-                    value: metricValueFromLatest(trendRows, "IY") ?? 0,
-                    color: phaseColors.amber,
-                  },
-                  {
-                    phase: "IB",
-                    value: metricValueFromLatest(trendRows, "IB") ?? 0,
-                    color: phaseColors.blue,
-                  },
-                ]}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#cbd5e1"
-                  strokeOpacity={0.45}
-                />
-                <XAxis dataKey="phase" tick={{ fontSize: 11 }} />
+              <BarChart data={hourlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.45} />
+                <XAxis dataKey="hour" tick={{ fontSize: 10 }} interval={1} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  <Cell fill={phaseColors.red} />
-                  <Cell fill={phaseColors.amber} />
-                  <Cell fill={phaseColors.blue} />
+                <Tooltip
+                  formatter={(value) => {
+                    const numeric = typeof value === "number" ? value : Number(value ?? 0)
+                    return `${formatNumber(numeric, 2)} A`
+                  }}
+                />
+                <Bar dataKey="averageCurrent" radius={[8, 8, 0, 0]}>
+                  {hourlyAverages.map((_, index) => (
+                    <Cell
+                      key={`hour-bar-${index}`}
+                      fill={index % 2 === 0 ? phaseColors.indigo : phaseColors.cyan}
+                    />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

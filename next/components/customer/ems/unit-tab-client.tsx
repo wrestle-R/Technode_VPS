@@ -1,19 +1,23 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 import {
+  average,
   buildTrendRows,
   metricValueFromLatest,
   statusClasses,
 } from "@/components/customer/ems/helpers"
 import { EmsChartTabs } from "@/components/customer/ems/charts/ems-chart-tabs"
+import { EmsOverviewTab } from "@/components/customer/ems/charts/ems-overview-tab"
 import { EmsVoltageTab } from "@/components/customer/ems/charts/ems-voltage-tab"
 import { EmsCurrentTab } from "@/components/customer/ems/charts/ems-current-tab"
 import { EmsEnergyTab } from "@/components/customer/ems/charts/ems-energy-tab"
 import { EmsDiagnosticTab } from "@/components/customer/ems/charts/ems-diagnostic-tab"
 import { EmsLogsTable } from "@/components/customer/ems/logs/ems-logs-table"
 import { EmsReportsPanel } from "@/components/customer/ems/reports/ems-reports-panel"
+import { useUser } from "@/contexts/user-context"
 import type {
   ChartTab,
   CustomerUnitDetail,
@@ -28,13 +32,20 @@ export function CustomerUnitTabClient({
   initialUnit: CustomerUnitDetail
   tab: string
 }) {
+  const { user } = useUser()
   const [unit, setUnit] = useState(initialUnit)
   const [selectedRtuKey, setSelectedRtuKey] = useState(
     initialUnit.latestRtus[0]?.rtuKey ?? ""
   )
-  const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("voltage")
+  const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("overview")
   const [reportRange, setReportRange] = useState<ReportRange>("24h")
   const [reportType, setReportType] = useState<ReportType>("raw")
+  const [summaryRange, setSummaryRange] = useState<"24h" | "7d" | "30d">("7d")
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(
+    undefined
+  )
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
+  const [hasRefreshError, setHasRefreshError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -48,6 +59,10 @@ export function CustomerUnitTabClient({
           }
         )
         if (!response.ok) {
+          if (!cancelled && !hasRefreshError) {
+            setHasRefreshError(true)
+            toast.error("Unable to refresh unit data")
+          }
           return
         }
 
@@ -58,9 +73,16 @@ export function CustomerUnitTabClient({
           setSelectedRtuKey(
             (current) => current || nextUnit.latestRtus[0]?.rtuKey || ""
           )
+          if (hasRefreshError) {
+            setHasRefreshError(false)
+            toast.success("Unit data reconnected")
+          }
         }
       } catch {
-        // keep last good data
+        if (!cancelled && !hasRefreshError) {
+          setHasRefreshError(true)
+          toast.error("Unable to refresh unit data")
+        }
       }
     }
 
@@ -72,7 +94,7 @@ export function CustomerUnitTabClient({
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [initialUnit.unitId])
+  }, [hasRefreshError, initialUnit.unitId])
 
   const availableRtus = useMemo(() => {
     const map = new Map<string, { rtuKey: string; nickname: string }>()
@@ -142,6 +164,88 @@ export function CustomerUnitTabClient({
 
   const frequency = metricValueFromLatest(trendRows, "Freq")
 
+  const overviewSnapshot = useMemo(() => {
+    const vry = metricValueFromLatest(trendRows, "VRY")
+    const vyb = metricValueFromLatest(trendRows, "VYB")
+    const vbr = metricValueFromLatest(trendRows, "VBR")
+    const vrn = metricValueFromLatest(trendRows, "VRN")
+    const vyn = metricValueFromLatest(trendRows, "VYN")
+    const vbn = metricValueFromLatest(trendRows, "VBN")
+    const ir = metricValueFromLatest(trendRows, "IR")
+    const iy = metricValueFromLatest(trendRows, "IY")
+    const ib = metricValueFromLatest(trendRows, "IB")
+    const pfr = metricValueFromLatest(trendRows, "PF-R")
+    const pfy = metricValueFromLatest(trendRows, "PF-Y")
+    const pfb = metricValueFromLatest(trendRows, "PF-B")
+
+    return {
+      voltageLL: average([vry, vyb, vbr]),
+      voltageR: vrn,
+      voltageY: vyn,
+      voltageB: vbn,
+      currentTotal: average([ir, iy, ib]),
+      currentR: ir,
+      currentY: iy,
+      currentB: ib,
+      powerFactorAvg: average([pfr, pfy, pfb]),
+      powerFactorR: pfr,
+      powerFactorY: pfy,
+      powerFactorB: pfb,
+      frequency,
+    }
+  }, [frequency, trendRows])
+
+  const summary = useMemo(() => {
+    const scopedRows =
+      summaryRange === "24h"
+        ? trendRows.slice(-24)
+        : summaryRange === "7d"
+          ? trendRows.slice(-7 * 24)
+          : trendRows.slice(-30 * 24)
+
+    const voltageRows = scopedRows
+      .map((row) => average([row.VRY as number | null, row.VYB as number | null, row.VBR as number | null]))
+      .filter((value): value is number => value != null)
+
+    const currentRows = scopedRows
+      .map((row) => average([row.IR as number | null, row.IY as number | null, row.IB as number | null]))
+      .filter((value): value is number => value != null)
+
+    const powerRows = scopedRows
+      .map((row) => {
+        const kwr = row["KW-R"]
+        const kwy = row["KW-Y"]
+        const kwb = row["KW-B"]
+        if (typeof kwr !== "number" || typeof kwy !== "number" || typeof kwb !== "number") {
+          return null
+        }
+        return kwr + kwy + kwb
+      })
+      .filter((value): value is number => value != null)
+
+    const powerFactorRows = scopedRows
+      .map((row) => average([row["PF-R"] as number | null, row["PF-Y"] as number | null, row["PF-B"] as number | null]))
+      .filter((value): value is number => value != null)
+
+    function stats(values: number[]) {
+      if (values.length === 0) {
+        return { max: null, min: null, avg: null }
+      }
+      return {
+        max: Math.max(...values),
+        min: Math.min(...values),
+        avg: values.reduce((sum, value) => sum + value, 0) / values.length,
+      }
+    }
+
+    return {
+      voltage: stats(voltageRows),
+      current: stats(currentRows),
+      power: stats(powerRows),
+      powerFactor: stats(powerFactorRows),
+    }
+  }, [summaryRange, trendRows])
+
   const kwhDelta = useMemo(() => {
     const values = trendRows
       .map((row) => row.Kwh)
@@ -153,6 +257,21 @@ export function CustomerUnitTabClient({
   }, [trendRows])
 
   const reportRows = useMemo(() => {
+    if (reportRange === "custom") {
+      if (!customStartDate || !customEndDate) {
+        return trendRows
+      }
+      const start = new Date(customStartDate)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(customEndDate)
+      end.setHours(23, 59, 59, 999)
+
+      return trendRows.filter((row) => {
+        const at = new Date(row.timestamp).getTime()
+        return at >= start.getTime() && at <= end.getTime()
+      })
+    }
+
     if (reportRange === "24h") {
       return trendRows.slice(-24)
     }
@@ -160,10 +279,11 @@ export function CustomerUnitTabClient({
       return trendRows.slice(-7 * 24)
     }
     return trendRows.slice(-30 * 24)
-  }, [reportRange, trendRows])
+  }, [customEndDate, customStartDate, reportRange, trendRows])
 
   function exportCsv() {
     if (reportRows.length === 0) {
+      toast.error("No data available for CSV export")
       return
     }
 
@@ -217,42 +337,62 @@ export function CustomerUnitTabClient({
   }
 
   function exportPdf() {
+    if (reportRows.length === 0) {
+      toast.error("No data available for PDF export")
+      return
+    }
     window.print()
   }
 
   if (tab === "charts") {
     return (
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
-            <p className="text-sm text-muted-foreground">
-              Live meter analytics with real-time trend panels.
-            </p>
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                EMS Analytics
+              </p>
+              <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
+              <p className="text-sm text-muted-foreground">
+                Live meter analytics with real-time trend panels.
+              </p>
+            </div>
+            <label className="grid gap-2 text-sm sm:min-w-56">
+              <span className="font-medium">Meter</span>
+              <select
+                className="h-10 rounded-xl border border-input bg-white/90 px-3"
+                value={effectiveRtuKey}
+                onChange={(event) => setSelectedRtuKey(event.target.value)}
+              >
+                {availableRtus.map((rtu) => (
+                  <option key={rtu.rtuKey} value={rtu.rtuKey}>
+                    {rtu.nickname}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <label className="grid gap-2 text-sm sm:min-w-56">
-            <span className="font-medium">Meter</span>
-            <select
-              className="h-10 rounded-xl border border-input bg-background px-3"
-              value={effectiveRtuKey}
-              onChange={(event) => setSelectedRtuKey(event.target.value)}
-            >
-              {availableRtus.map((rtu) => (
-                <option key={rtu.rtuKey} value={rtu.rtuKey}>
-                  {rtu.nickname}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
 
-        <EmsChartTabs
-          selectedChartTab={selectedChartTab}
-          onChange={setSelectedChartTab}
-        />
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <EmsChartTabs
+            selectedChartTab={selectedChartTab}
+            onChange={setSelectedChartTab}
+          />
+        </div>
 
         {selectedChartTab === "voltage" ? (
           <EmsVoltageTab trendRows={trendRows} />
+        ) : null}
+        {selectedChartTab === "overview" ? (
+          <EmsOverviewTab
+            trendRows={trendRows}
+            snapshot={overviewSnapshot}
+            summary={summary}
+            summaryRange={summaryRange}
+            onSummaryRangeChange={setSummaryRange}
+          />
         ) : null}
         {selectedChartTab === "current" ? (
           <EmsCurrentTab trendRows={trendRows} />
@@ -283,26 +423,34 @@ export function CustomerUnitTabClient({
         reportRows={reportRows}
         kwhDelta={kwhDelta}
         frequency={frequency}
+        customStartDate={customStartDate}
+        customEndDate={customEndDate}
+        onCustomStartDateChange={setCustomStartDate}
+        onCustomEndDateChange={setCustomEndDate}
+        companyName={user?.companyName ?? ""}
+        companyLoginImageUrl={user?.companyLoginImageUrl ?? ""}
       />
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(unit.status)}`}
-          >
-            {unit.status}
-          </span>
-          <p className="text-sm text-muted-foreground">
-            Last seen:{" "}
-            {unit.lastSeenAt
-              ? new Date(unit.lastSeenAt).toLocaleString()
-              : "Never"}
-          </p>
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(unit.status)}`}
+            >
+              {unit.status}
+            </span>
+            <p className="text-sm text-muted-foreground">
+              Last seen:{" "}
+              {unit.lastSeenAt
+                ? new Date(unit.lastSeenAt).toLocaleString()
+                : "Never"}
+            </p>
+          </div>
         </div>
       </div>
 

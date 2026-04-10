@@ -6,6 +6,7 @@ type UserData = {
   customerRepresentative: string
   email: string
   companyName: string
+  companyLoginImageUrl: string
   companySidebarImageUrl: string
   companyBrowserIconUrl: string
 }

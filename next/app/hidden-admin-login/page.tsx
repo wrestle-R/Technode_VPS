@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Eye, EyeOff } from "lucide-react"
 
 export default function HiddenAdminLoginPage() {
   const router = useRouter()
@@ -14,11 +13,17 @@ export default function HiddenAdminLoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+
+    if (!username || !password) {
+      const message = "Username and password are required."
+      setError(message)
+      toast.error(message)
+      return
+    }
 
     setLoading(true)
     try {
@@ -39,6 +44,7 @@ export default function HiddenAdminLoginPage() {
         return
       }
 
+      toast.success("Admin sign-in successful")
       router.push("/admin/dashboard")
       router.refresh()
     } catch {

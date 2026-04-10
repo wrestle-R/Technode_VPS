@@ -9,7 +9,6 @@ const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapCo
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false })
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false })
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false })
-const MapBoundsComponent = dynamic(() => import('./map-bounds').then(mod => mod.MapBounds), { ssr: false })
 
 export type DeviceMapData = {
   id: string
@@ -83,7 +82,6 @@ export function DashboardMap({ devices }: { devices: DeviceMapData[] }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapBoundsComponent devices={devices} />
         {icons && devices.filter(d => d.latitude && d.longitude).map((device) => {
           return (
             <Marker

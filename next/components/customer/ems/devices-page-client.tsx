@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
 type CustomerUnitSummary = {
   id: string
@@ -25,6 +26,7 @@ export function CustomerDevicesPageClient({
   initialUnits: CustomerUnitSummary[]
 }) {
   const [units, setUnits] = useState(initialUnits)
+  const [hasRefreshError, setHasRefreshError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -33,6 +35,10 @@ export function CustomerDevicesPageClient({
       try {
         const response = await fetch("/api/customer/ems", { cache: "no-store" })
         if (!response.ok) {
+          if (!cancelled && !hasRefreshError) {
+            setHasRefreshError(true)
+            toast.error("Unable to refresh devices right now")
+          }
           return
         }
 
@@ -41,9 +47,16 @@ export function CustomerDevicesPageClient({
         }
         if (!cancelled) {
           setUnits(data.units ?? [])
+          if (hasRefreshError) {
+            setHasRefreshError(false)
+            toast.success("Device list reconnected")
+          }
         }
       } catch {
-        // keep last good data
+        if (!cancelled && !hasRefreshError) {
+          setHasRefreshError(true)
+          toast.error("Unable to refresh devices right now")
+        }
       }
     }
 
@@ -55,7 +68,7 @@ export function CustomerDevicesPageClient({
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [])
+  }, [hasRefreshError])
 
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -65,7 +78,7 @@ export function CustomerDevicesPageClient({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28 }}
-          className="rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 p-[1px] shadow-[0_18px_36px_-24px_rgba(15,23,42,0.7)]"
+          className="rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 p-[1px] shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)]"
         >
           <Link
             href={`/devices/ems/${unit.unitId}/charts`}

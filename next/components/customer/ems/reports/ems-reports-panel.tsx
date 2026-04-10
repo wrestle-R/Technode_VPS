@@ -1,5 +1,11 @@
+import Image from "next/image"
+import { format } from "date-fns"
 import { motion } from "framer-motion"
+import { CalendarIcon, Download, FileSpreadsheet, FileText } from "lucide-react"
+import type { DateRange } from "react-day-picker"
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
   Line,
@@ -12,14 +18,16 @@ import {
 
 import {
   formatNumber,
+  gradientCardClassName,
   phaseColors,
-  reportsGradientCardClassName,
 } from "@/components/customer/ems/helpers"
 import type {
   ReportRange,
   ReportType,
   TrendPoint,
 } from "@/components/customer/ems/types"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export function EmsReportsPanel({
   unitId,
@@ -35,6 +43,12 @@ export function EmsReportsPanel({
   reportRows,
   kwhDelta,
   frequency,
+  customStartDate,
+  customEndDate,
+  onCustomStartDateChange,
+  onCustomEndDateChange,
+  companyName,
+  companyLoginImageUrl,
 }: {
   unitId: string
   effectiveRtuKey: string
@@ -49,41 +63,121 @@ export function EmsReportsPanel({
   reportRows: TrendPoint[]
   kwhDelta: number | null
   frequency: number | null
+  customStartDate: Date | undefined
+  customEndDate: Date | undefined
+  onCustomStartDateChange: (date: Date | undefined) => void
+  onCustomEndDateChange: (date: Date | undefined) => void
+  companyName: string
+  companyLoginImageUrl: string
 }) {
+  const rangeSummary =
+    reportRange === "24h"
+      ? "Last 24 Hours"
+      : reportRange === "7d"
+        ? "Last 7 Days"
+        : reportRange === "30d"
+          ? "Last 30 Days"
+          : customStartDate && customEndDate
+            ? `${format(customStartDate, "dd MMM yyyy")} - ${format(customEndDate, "dd MMM yyyy")}`
+            : "Custom Range"
+
+  const latestTimestamp =
+    reportRows.length > 0
+      ? new Date(reportRows[reportRows.length - 1]?.timestamp ?? "").toLocaleString()
+      : "--"
+
+  const reportTypeLabel =
+    reportType === "raw"
+      ? "Raw Data Report"
+      : reportType === "analytical"
+        ? "Analytical Report"
+        : "Consumption & Cost"
+
+  const selectedRange: DateRange | undefined =
+    customStartDate || customEndDate
+      ? {
+          from: customStartDate,
+          to: customEndDate,
+        }
+      : undefined
+
+  const chartRows = reportRows.map((row) => {
+    const at = new Date(row.timestamp)
+    const reportLabel =
+      reportRange === "24h"
+        ? at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : at.toLocaleString([], {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+
+    return {
+      ...row,
+      reportLabel,
+    }
+  })
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{unitId}</h1>
-          <p className="text-sm text-muted-foreground">
-            Generate raw, analytical, and consumption-focused reports.
-          </p>
+      <article className={gradientCardClassName()}>
+        <div className="rounded-[15px] bg-card p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                Device Report Generator
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold">{unitId}</h1>
+              <p className="text-sm text-muted-foreground">Last updated: {latestTimestamp}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {companyLoginImageUrl ? (
+                <div className="h-14 w-28 overflow-hidden rounded-xl border border-border/70 bg-white p-2">
+                  <Image
+                    src={companyLoginImageUrl}
+                    alt={companyName || "Company"}
+                    width={112}
+                    height={56}
+                    className="h-full w-full object-contain"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-right">
+                <p className="text-xs text-muted-foreground">Company</p>
+                <p className="text-sm font-semibold">{companyName || "Technode"}</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <label className="grid gap-2 text-sm sm:min-w-56">
-          <span className="font-medium">Meter</span>
-          <select
-            className="h-10 rounded-xl border border-input bg-background px-3"
-            value={effectiveRtuKey}
-            onChange={(event) => onRtuChange(event.target.value)}
-          >
-            {availableRtus.map((rtu) => (
-              <option key={rtu.rtuKey} value={rtu.rtuKey}>
-                {rtu.nickname}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      </article>
 
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid gap-4 xl:grid-cols-3"
+        className="grid gap-4 xl:grid-cols-4"
       >
-        <article className={reportsGradientCardClassName("xl:col-span-2")}>
-          <div className="space-y-4 rounded-[15px] bg-card p-4">
+        <article className={gradientCardClassName("xl:col-span-3")}>
+          <div className="space-y-5 rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Report Configuration</p>
-            <div className="grid gap-3 md:grid-cols-3">
+
+            <div className="grid gap-3 lg:grid-cols-3">
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium">Device / Meter</span>
+                <select
+                  className="h-10 rounded-xl border border-input bg-white/90 px-3"
+                  value={effectiveRtuKey}
+                  onChange={(event) => onRtuChange(event.target.value)}
+                >
+                  {availableRtus.map((rtu) => (
+                    <option key={rtu.rtuKey} value={rtu.rtuKey}>
+                      {rtu.nickname}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <label className="grid gap-2 text-sm">
                 <span className="font-medium">Date Range</span>
                 <select
@@ -91,11 +185,12 @@ export function EmsReportsPanel({
                   onChange={(event) =>
                     onReportRangeChange(event.target.value as ReportRange)
                   }
-                  className="h-10 rounded-xl border border-input bg-background px-3"
+                  className="h-10 rounded-xl border border-input bg-white/90 px-3"
                 >
                   <option value="24h">Last 24 Hours</option>
                   <option value="7d">Last 7 Days</option>
                   <option value="30d">Last 30 Days</option>
+                  <option value="custom">Custom Range</option>
                 </select>
               </label>
 
@@ -106,91 +201,124 @@ export function EmsReportsPanel({
                   onChange={(event) =>
                     onReportTypeChange(event.target.value as ReportType)
                   }
-                  className="h-10 rounded-xl border border-input bg-background px-3"
+                  className="h-10 rounded-xl border border-input bg-white/90 px-3"
                 >
                   <option value="raw">Raw Data Report</option>
                   <option value="analytical">Analytical Report</option>
-                  <option value="consumption">Consumption and Cost</option>
+                  <option value="consumption">Consumption & Cost</option>
                 </select>
               </label>
-
-              <div className="grid gap-2 text-sm">
-                <span className="font-medium">Export</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={onExportCsv}
-                    className="h-10 flex-1 rounded-xl border border-border bg-card text-xs font-semibold tracking-[0.12em] uppercase"
-                  >
-                    CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onExportPdf}
-                    className="h-10 flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-xs font-semibold tracking-[0.12em] text-white uppercase"
-                  >
-                    PDF
-                  </button>
-                </div>
-              </div>
             </div>
 
-            <div className="h-72">
+            <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+              <p className="text-sm font-semibold">Quick Date Range Selection</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { key: "24h" as const, label: "Last 24 Hours" },
+                  { key: "7d" as const, label: "Last 7 Days" },
+                  { key: "30d" as const, label: "Last 30 Days" },
+                  { key: "custom" as const, label: "Custom Range" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onReportRangeChange(item.key)}
+                    className={
+                      reportRange === item.key
+                        ? "h-10 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-xs font-semibold tracking-[0.12em] text-white uppercase shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)]"
+                        : "h-10 rounded-xl border border-border bg-white/90 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase transition hover:bg-white"
+                    }
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {reportRange === "custom" ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-10 w-full items-center justify-between rounded-xl border border-border bg-white px-3 text-sm"
+                    >
+                      <span>
+                        {customStartDate
+                          ? customEndDate
+                            ? `${format(customStartDate, "dd MMM yyyy")} - ${format(customEndDate, "dd MMM yyyy")}`
+                            : format(customStartDate, "dd MMM yyyy")
+                          : "Pick a date range"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto p-0">
+                    <Calendar
+                      mode="range"
+                      numberOfMonths={2}
+                      selected={selectedRange}
+                      onSelect={(range) => {
+                        onCustomStartDateChange(range?.from)
+                        onCustomEndDateChange(range?.to)
+                        onReportRangeChange("custom")
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              ) : null}
+            </div>
+
+            <div className="h-80 rounded-2xl border border-border/70 bg-white/80 p-2">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={reportRows.slice(-50)}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#cbd5e1"
-                    strokeOpacity={0.45}
-                  />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="Kwh"
-                    stroke={phaseColors.green}
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="KW-R"
-                    stroke={phaseColors.red}
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="KW-Y"
-                    stroke={phaseColors.amber}
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="KW-B"
-                    stroke={phaseColors.blue}
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                </LineChart>
+                {reportType === "consumption" ? (
+                  <AreaChart data={chartRows}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.45} />
+                    <XAxis dataKey="reportLabel" tick={{ fontSize: 11 }} minTickGap={28} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="Kwh" stroke={phaseColors.green} fill={phaseColors.green} fillOpacity={0.2} />
+                    <Area type="monotone" dataKey="KvAh" stroke={phaseColors.indigo} fill={phaseColors.indigo} fillOpacity={0.18} />
+                    <Area type="monotone" dataKey="KvArh" stroke={phaseColors.cyan} fill={phaseColors.cyan} fillOpacity={0.16} />
+                  </AreaChart>
+                ) : (
+                  <LineChart data={chartRows}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.45} />
+                    <XAxis dataKey="reportLabel" tick={{ fontSize: 11 }} minTickGap={28} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend />
+                    {reportType === "raw" ? (
+                      <>
+                        <Line type="monotone" dataKey="Kwh" stroke={phaseColors.green} dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="KW-R" stroke={phaseColors.red} dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="KW-Y" stroke={phaseColors.amber} dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="KW-B" stroke={phaseColors.blue} dot={false} strokeWidth={2} />
+                      </>
+                    ) : (
+                      <>
+                        <Line type="monotone" dataKey="VRY" stroke={phaseColors.red} dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="IR" stroke={phaseColors.indigo} dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="PF-R" stroke={phaseColors.amber} dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="Freq" stroke={phaseColors.cyan} dot={false} strokeWidth={2} />
+                      </>
+                    )}
+                  </LineChart>
+                )}
               </ResponsiveContainer>
             </div>
           </div>
         </article>
 
-        <article className={reportsGradientCardClassName()}>
+        <article className={gradientCardClassName()}>
           <div className="space-y-3 rounded-[15px] bg-card p-4">
-            <p className="text-sm font-semibold">Computed Summary</p>
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-              <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
-                Total kWh Delta
-              </p>
-              <p className="mt-1 text-lg font-semibold">
-                {formatNumber(kwhDelta, 3)}
-              </p>
+            <p className="text-sm font-semibold">Current Settings</p>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm">
+              <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">Date Range</p>
+              <p className="mt-1 font-semibold">{rangeSummary}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm">
+              <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">Report Type</p>
+              <p className="mt-1 font-semibold">{reportTypeLabel}</p>
             </div>
             <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
               <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
@@ -200,11 +328,43 @@ export function EmsReportsPanel({
             </div>
             <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
               <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                Total kWh Delta
+              </p>
+              <p className="mt-1 text-lg font-semibold">{formatNumber(kwhDelta, 3)}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+              <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
                 Latest Frequency
               </p>
               <p className="mt-1 text-lg font-semibold">
                 {formatNumber(frequency, 2)} Hz
               </p>
+            </div>
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={onExportCsv}
+                className="flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white/90 text-xs font-semibold tracking-[0.12em] uppercase transition hover:bg-white"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Download CSV
+              </button>
+              <button
+                type="button"
+                onClick={onExportPdf}
+                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-xs font-semibold tracking-[0.12em] text-white uppercase shadow-[0_18px_30px_-20px_rgba(5,150,105,0.72)]"
+              >
+                <FileText className="h-4 w-4" />
+                Download PDF
+              </button>
+              <button
+                type="button"
+                onClick={onExportPdf}
+                className="flex h-10 items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
+              >
+                <Download className="h-4 w-4" />
+                Print Report
+              </button>
             </div>
           </div>
         </article>
