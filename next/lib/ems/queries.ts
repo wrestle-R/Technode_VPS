@@ -43,15 +43,15 @@ function inferStatus(rawPayload: unknown, lastSeenAt: Date | null) {
 
   if (typeof payloadStatus === "string") {
     const normalized = payloadStatus.trim().toLowerCase()
-    if (normalized === "online") {
-      return "Online"
-    }
     if (normalized === "offline") {
       return "Offline"
     }
+    if (normalized === "online") {
+      return "Online"
+    }
   }
 
-  return "Offline"
+  return "Online"
 }
 
 function getFieldTemplateForRtu({

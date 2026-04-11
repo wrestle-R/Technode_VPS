@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
@@ -68,9 +69,12 @@ export function LoginForm({
     <div className="app-page-surface flex min-h-svh items-center justify-center px-4 py-10">
       <div className="app-card-surface w-full max-w-md rounded-2xl p-7 sm:p-9">
         <div className="mb-8 text-center">
-          <img
+          <Image
             src={logoSrc}
             alt="Company logo"
+            width={220}
+            height={56}
+            unoptimized
             className="mx-auto mb-5 h-14 w-auto max-w-[220px] object-contain"
             onError={() => setLogoSrc("/logo.png")}
           />

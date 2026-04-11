@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
+import Image from "next/image"
 import { FileImage, Upload, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -187,7 +188,14 @@ export function CompanyForm({ mode, initialValues }: CompanyFormProps) {
               <div className="rounded-xl border border-border/60 bg-white p-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Current image</p>
                 <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-border/70 bg-white p-3">
-                  <img src={currentImageUrl} alt={currentImageAlt} className="max-h-16 w-auto object-contain" />
+                  <Image
+                    src={currentImageUrl}
+                    alt={currentImageAlt}
+                    width={160}
+                    height={64}
+                    unoptimized
+                    className="max-h-16 w-auto object-contain"
+                  />
                 </div>
               </div>
             ) : null}
