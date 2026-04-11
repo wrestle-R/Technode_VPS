@@ -77,3 +77,37 @@ export type ChartTab =
 export type ReportRange = "24h" | "7d" | "30d" | "custom"
 
 export type ReportType = "raw" | "analytical" | "consumption"
+
+export type EnergyDailyRange = "3d" | "7d" | "30d"
+
+export type EnergyCumulativePoint = {
+  timestamp: string
+  label: string
+  kwh: number
+}
+
+export type EnergyDailyConsumptionPoint = {
+  date: string
+  label: string
+  consumption: number
+}
+
+export type EnergyMonthlyAveragePoint = {
+  month: string
+  label: string
+  averageConsumption: number
+}
+
+export type EnergyHourlyConsumptionPoint = {
+  hour: string
+  label: string
+  consumption: number
+}
+
+export type EnergyAnalytics = {
+  monthlyCumulative: EnergyCumulativePoint[]
+  dailyConsumption: EnergyDailyConsumptionPoint[]
+  monthlyAverage: EnergyMonthlyAveragePoint[]
+  hourlyConsumption: EnergyHourlyConsumptionPoint[]
+  generatedAt: string
+}

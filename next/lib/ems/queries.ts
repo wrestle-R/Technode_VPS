@@ -94,6 +94,25 @@ type SummaryStats = {
   powerFactor: StatSeries
 }
 
+type EnergyDailyRange = "3d" | "7d" | "30d"
+
+type EnergyAnalyticsPoint = {
+  at: Date
+  kwh: number
+}
+
+type EnergyAnalytics = {
+  monthlyCumulative: Array<{ timestamp: string; label: string; kwh: number }>
+  dailyConsumption: Array<{ date: string; label: string; consumption: number }>
+  monthlyAverage: Array<{
+    month: string
+    label: string
+    averageConsumption: number
+  }>
+  hourlyConsumption: Array<{ hour: string; label: string; consumption: number }>
+  generatedAt: string
+}
+
 function finiteMetric(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
@@ -119,6 +138,219 @@ function stats(values: number[]): StatSeries {
     min: Math.min(...values),
     avg: values.reduce((sum, value) => sum + value, 0) / values.length,
   }
+}
+
+function dayKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function monthKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  return `${year}-${month}`
+}
+
+function daysFromRange(range: EnergyDailyRange) {
+  if (range === "3d") {
+    return 3
+  }
+  if (range === "7d") {
+    return 7
+  }
+  return 30
+}
+
+function buildMonthlyCumulative(points: EnergyAnalyticsPoint[]) {
+  if (points.length === 0) {
+    return []
+  }
+
+  const sorted = points
+    .slice()
+    .sort((a, b) => a.at.getTime() - b.at.getTime())
+  const rows: Array<{ timestamp: string; label: string; kwh: number }> = []
+  let cumulative = 0
+  let previous = sorted[0]?.kwh ?? 0
+
+  for (let index = 0; index < sorted.length; index += 1) {
+    const point = sorted[index]
+    if (!point) {
+      continue
+    }
+
+    if (index > 0) {
+      const delta = point.kwh - previous
+      if (delta > 0) {
+        cumulative += delta
+      }
+      previous = point.kwh
+    }
+
+    rows.push({
+      timestamp: point.at.toISOString(),
+      label: point.at.toLocaleString([], {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      kwh: cumulative,
+    })
+  }
+
+  return rows
+}
+
+function buildDailyConsumption(
+  points: EnergyAnalyticsPoint[],
+  startAt: Date,
+  totalDays: number
+) {
+  const perDay = new Map<string, { min: number; max: number }>()
+
+  for (const point of points) {
+    if (point.at.getTime() < startAt.getTime()) {
+      continue
+    }
+
+    const key = dayKey(point.at)
+    const existing = perDay.get(key)
+    if (!existing) {
+      perDay.set(key, { min: point.kwh, max: point.kwh })
+      continue
+    }
+
+    if (point.kwh < existing.min) {
+      existing.min = point.kwh
+    }
+    if (point.kwh > existing.max) {
+      existing.max = point.kwh
+    }
+  }
+
+  const rows: Array<{ date: string; label: string; consumption: number }> = []
+  for (let offset = totalDays - 1; offset >= 0; offset -= 1) {
+    const date = new Date(startAt)
+    date.setDate(startAt.getDate() + (totalDays - 1 - offset))
+    const key = dayKey(date)
+    const bucket = perDay.get(key)
+    const consumption = bucket ? Math.max(bucket.max - bucket.min, 0) : 0
+
+    rows.push({
+      date: key,
+      label: date.toLocaleDateString([], { day: "2-digit", month: "short" }),
+      consumption,
+    })
+  }
+
+  return rows
+}
+
+function buildMonthlyAverage(points: EnergyAnalyticsPoint[], now: Date) {
+  const monthStarts = [2, 1, 0].map((back) =>
+    new Date(now.getFullYear(), now.getMonth() - back, 1)
+  )
+  const monthEnd = new Date(now)
+
+  return monthStarts.map((start) => {
+    const end =
+      start.getMonth() === now.getMonth() && start.getFullYear() === now.getFullYear()
+        ? monthEnd
+        : new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999)
+
+    const perDay = new Map<string, { min: number; max: number }>()
+
+    for (const point of points) {
+      const time = point.at.getTime()
+      if (time < start.getTime() || time > end.getTime()) {
+        continue
+      }
+
+      const key = dayKey(point.at)
+      const existing = perDay.get(key)
+      if (!existing) {
+        perDay.set(key, { min: point.kwh, max: point.kwh })
+        continue
+      }
+
+      if (point.kwh < existing.min) {
+        existing.min = point.kwh
+      }
+      if (point.kwh > existing.max) {
+        existing.max = point.kwh
+      }
+    }
+
+    const dayConsumptions = Array.from(perDay.values()).map((bucket) =>
+      Math.max(bucket.max - bucket.min, 0)
+    )
+    const averageConsumption =
+      dayConsumptions.length > 0
+        ? dayConsumptions.reduce((sum, value) => sum + value, 0) /
+          dayConsumptions.length
+        : 0
+
+    return {
+      month: monthKey(start),
+      label: start.toLocaleDateString([], { month: "short", year: "numeric" }),
+      averageConsumption,
+    }
+  })
+}
+
+function buildHourlyConsumption(points: EnergyAnalyticsPoint[], now: Date) {
+  const currentHour = new Date(now)
+  currentHour.setMinutes(0, 0, 0)
+  const startAt = new Date(currentHour)
+  startAt.setHours(startAt.getHours() - 23)
+
+  const hourlySlots = Array.from({ length: 24 }, (_, index) => {
+    const hourStart = new Date(startAt)
+    hourStart.setHours(startAt.getHours() + index)
+    return {
+      key: hourStart.getTime(),
+      hour: hourStart.toISOString(),
+      label: hourStart.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      min: null as number | null,
+      max: null as number | null,
+    }
+  })
+
+  const slotByTime = new Map(hourlySlots.map((slot) => [slot.key, slot]))
+
+  for (const point of points) {
+    const time = point.at.getTime()
+    if (time < startAt.getTime() || time > now.getTime()) {
+      continue
+    }
+
+    const slotStart = new Date(point.at)
+    slotStart.setMinutes(0, 0, 0)
+    const slot = slotByTime.get(slotStart.getTime())
+    if (!slot) {
+      continue
+    }
+
+    if (slot.min == null || point.kwh < slot.min) {
+      slot.min = point.kwh
+    }
+    if (slot.max == null || point.kwh > slot.max) {
+      slot.max = point.kwh
+    }
+  }
+
+  return hourlySlots.map((slot) => ({
+    hour: slot.hour,
+    label: slot.label,
+    consumption:
+      slot.min != null && slot.max != null ? Math.max(slot.max - slot.min, 0) : 0,
+  }))
 }
 
 function formatMappedArray(
@@ -758,5 +990,101 @@ export async function getCustomerEmsCurrentHourlyStats({
           : null,
     })),
     computedAt: new Date().toISOString(),
+  }
+}
+
+export async function getCustomerEmsEnergyAnalytics({
+  customerId,
+  unitId,
+  rtuKey,
+  dailyRange,
+}: {
+  customerId: number
+  unitId: string
+  rtuKey: string
+  dailyRange: EnergyDailyRange
+}): Promise<EnergyAnalytics | null> {
+  const unit = await prisma.emsUnit.findFirst({
+    where: {
+      unit_id: unitId,
+      customer_id: customerId,
+    },
+    select: {
+      id: true,
+      unit_field_template: true,
+      rtu_overrides: true,
+      scalingFactor: true,
+    },
+  })
+
+  if (!unit) {
+    return null
+  }
+
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const totalDays = daysFromRange(dailyRange)
+  const dailyStart = new Date(now)
+  dailyStart.setHours(0, 0, 0, 0)
+  dailyStart.setDate(dailyStart.getDate() - (totalDays - 1))
+  const threeMonthStart = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+
+  const earliestStart = new Date(
+    Math.min(monthStart.getTime(), dailyStart.getTime(), threeMonthStart.getTime())
+  )
+
+  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
+  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
+
+  const logs = await prisma.emsLog.findMany({
+    where: {
+      ems_unit_id: unit.id,
+      device_timestamp: {
+        gte: earliestStart,
+      },
+    },
+    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
+    select: {
+      device_timestamp: true,
+      raw_rtu_array: true,
+    },
+  })
+
+  const readings: EnergyAnalyticsPoint[] = []
+  for (const log of logs) {
+    const mappedRtus = formatMappedArray(
+      log.raw_rtu_array,
+      unitTemplate,
+      overrides,
+      scalingFactor
+    )
+    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
+    if (!rtu) {
+      continue
+    }
+
+    const kwh = finiteMetric(
+      rtu.metrics.find((metric) => metric.key === "Kwh")?.value
+    )
+    if (kwh == null) {
+      continue
+    }
+
+    readings.push({ at: new Date(log.device_timestamp), kwh })
+  }
+
+  const monthlyReadings = readings.filter(
+    (point) => point.at.getTime() >= monthStart.getTime()
+  )
+
+  return {
+    monthlyCumulative: buildMonthlyCumulative(monthlyReadings),
+    dailyConsumption: buildDailyConsumption(readings, dailyStart, totalDays),
+    monthlyAverage: buildMonthlyAverage(readings, now),
+    hourlyConsumption: buildHourlyConsumption(readings, now),
+    generatedAt: new Date().toISOString(),
   }
 }

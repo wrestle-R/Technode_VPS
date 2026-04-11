@@ -22,6 +22,8 @@ import { useUser } from "@/contexts/user-context"
 import type {
   ChartTab,
   CustomerUnitDetail,
+  EnergyAnalytics,
+  EnergyDailyRange,
   HourlyCurrentStats,
   ReportRange,
   ReportType,
@@ -63,6 +65,12 @@ export function CustomerUnitTabClient({
     points: [],
     computedAt: new Date(0).toISOString(),
   })
+  const [energyDailyRange, setEnergyDailyRange] =
+    useState<EnergyDailyRange>("30d")
+  const [energyAnalytics, setEnergyAnalytics] = useState<EnergyAnalytics | null>(
+    null
+  )
+  const [isEnergyAnalyticsLoading, setIsEnergyAnalyticsLoading] = useState(false)
   const chartSwitchTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -338,6 +346,63 @@ export function CustomerUnitTabClient({
     }
   }, [effectiveRtuKey, selectedChartTab, tab, unit.unitId])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadEnergyAnalytics() {
+      if (tab !== "charts" || selectedChartTab !== "energy") {
+        return
+      }
+
+      if (!effectiveRtuKey) {
+        setEnergyAnalytics(null)
+        return
+      }
+
+      setIsEnergyAnalyticsLoading(true)
+
+      try {
+        const response = await fetch(
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/energy-analytics?rtuKey=${encodeURIComponent(effectiveRtuKey)}&dailyRange=${encodeURIComponent(energyDailyRange)}`,
+          {
+            cache: "no-store",
+          }
+        )
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = (await response.json()) as { analytics?: EnergyAnalytics }
+        if (!cancelled) {
+          setEnergyAnalytics(data.analytics ?? null)
+        }
+      } catch {
+        return
+      } finally {
+        if (!cancelled) {
+          setIsEnergyAnalyticsLoading(false)
+        }
+      }
+    }
+
+    void loadEnergyAnalytics()
+
+    const interval =
+      tab === "charts" && selectedChartTab === "energy"
+        ? window.setInterval(() => {
+            void loadEnergyAnalytics()
+          }, 30_000)
+        : null
+
+    return () => {
+      cancelled = true
+      if (interval) {
+        window.clearInterval(interval)
+      }
+    }
+  }, [effectiveRtuKey, energyDailyRange, selectedChartTab, tab, unit.unitId])
+
   const kwhDelta = useMemo(() => {
     const values = trendRows
       .map((row) => row.Kwh)
@@ -507,7 +572,12 @@ export function CustomerUnitTabClient({
               />
             ) : null}
             {selectedChartTab === "energy" ? (
-              <EmsEnergyTab trendRows={trendRows} kwhDelta={kwhDelta} />
+              <EmsEnergyTab
+                analytics={energyAnalytics}
+                dailyRange={energyDailyRange}
+                onDailyRangeChange={setEnergyDailyRange}
+                isLoading={isEnergyAnalyticsLoading}
+              />
             ) : null}
             {selectedChartTab === "diagnostic" ? (
               <EmsDiagnosticTab trendRows={trendRows} />
