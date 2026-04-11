@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { AdminPageLoading } from "@/components/shared/loading/admin-page-loading"
 import { CompanyForm } from "../company-form"
 
 export default function AdminCompanyCreatePage() {
@@ -10,7 +11,7 @@ export default function AdminCompanyCreatePage() {
         <p className="mt-2 text-sm text-muted-foreground">Create a tenant with dedicated login image, sidebar image, browser icon, and a unique slug.</p>
       </div>
 
-      <Suspense fallback={<div>Loading form...</div>}>
+      <Suspense fallback={<AdminPageLoading mode="form" />}>
         <CompanyForm mode="create" />
       </Suspense>
     </div>

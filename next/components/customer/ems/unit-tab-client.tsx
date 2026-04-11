@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import {
@@ -17,6 +17,7 @@ import { EmsEnergyTab } from "@/components/customer/ems/charts/ems-energy-tab"
 import { EmsDiagnosticTab } from "@/components/customer/ems/charts/ems-diagnostic-tab"
 import { EmsLogsTable } from "@/components/customer/ems/logs/ems-logs-table"
 import { EmsReportsPanel } from "@/components/customer/ems/reports/ems-reports-panel"
+import { EmsTabContentSkeleton } from "@/components/customer/ems/tab-content-skeleton"
 import { useUser } from "@/contexts/user-context"
 import type {
   ChartTab,
@@ -41,6 +42,7 @@ export function CustomerUnitTabClient({
     initialUnit.latestRtus[0]?.rtuKey ?? ""
   )
   const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("overview")
+  const [isChartTabSwitching, setIsChartTabSwitching] = useState(false)
   const [reportRange, setReportRange] = useState<ReportRange>("24h")
   const [reportType, setReportType] = useState<ReportType>("raw")
   const [summaryRange, setSummaryRange] = useState<SummaryRange>("7d")
@@ -61,6 +63,32 @@ export function CustomerUnitTabClient({
     points: [],
     computedAt: new Date(0).toISOString(),
   })
+  const chartSwitchTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (chartSwitchTimerRef.current) {
+        window.clearTimeout(chartSwitchTimerRef.current)
+      }
+    }
+  }, [])
+
+  function handleChartTabChange(nextTab: ChartTab) {
+    if (nextTab === selectedChartTab) {
+      return
+    }
+
+    if (chartSwitchTimerRef.current) {
+      window.clearTimeout(chartSwitchTimerRef.current)
+    }
+
+    setIsChartTabSwitching(true)
+    setSelectedChartTab(nextTab)
+
+    chartSwitchTimerRef.current = window.setTimeout(() => {
+      setIsChartTabSwitching(false)
+    }, 220)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -452,34 +480,40 @@ export function CustomerUnitTabClient({
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <EmsChartTabs
             selectedChartTab={selectedChartTab}
-            onChange={setSelectedChartTab}
+            onChange={handleChartTabChange}
           />
         </div>
 
-        {selectedChartTab === "voltage" ? (
-          <EmsVoltageTab trendRows={trendRows} />
-        ) : null}
-        {selectedChartTab === "overview" ? (
-          <EmsOverviewTab
-            trendRows={trendRows}
-            snapshot={overviewSnapshot}
-            summary={summary}
-            summaryRange={summaryRange}
-            onSummaryRangeChange={setSummaryRange}
-          />
-        ) : null}
-        {selectedChartTab === "current" ? (
-          <EmsCurrentTab
-            trendRows={trendRows}
-            hourlyCurrentPoints={hourlyCurrent.points}
-          />
-        ) : null}
-        {selectedChartTab === "energy" ? (
-          <EmsEnergyTab trendRows={trendRows} kwhDelta={kwhDelta} />
-        ) : null}
-        {selectedChartTab === "diagnostic" ? (
-          <EmsDiagnosticTab trendRows={trendRows} />
-        ) : null}
+        {isChartTabSwitching ? (
+          <EmsTabContentSkeleton tab={selectedChartTab} />
+        ) : (
+          <>
+            {selectedChartTab === "voltage" ? (
+              <EmsVoltageTab trendRows={trendRows} />
+            ) : null}
+            {selectedChartTab === "overview" ? (
+              <EmsOverviewTab
+                trendRows={trendRows}
+                snapshot={overviewSnapshot}
+                summary={summary}
+                summaryRange={summaryRange}
+                onSummaryRangeChange={setSummaryRange}
+              />
+            ) : null}
+            {selectedChartTab === "current" ? (
+              <EmsCurrentTab
+                trendRows={trendRows}
+                hourlyCurrentPoints={hourlyCurrent.points}
+              />
+            ) : null}
+            {selectedChartTab === "energy" ? (
+              <EmsEnergyTab trendRows={trendRows} kwhDelta={kwhDelta} />
+            ) : null}
+            {selectedChartTab === "diagnostic" ? (
+              <EmsDiagnosticTab trendRows={trendRows} />
+            ) : null}
+          </>
+        )}
       </div>
     )
   }

@@ -39,6 +39,8 @@ async function getDeviceData(): Promise<DeviceMapData[]> {
   })
 }
 
+export const revalidate = 30
+
 export default async function AdminDashboardPage() {
   const devices = await getDeviceData()
 
