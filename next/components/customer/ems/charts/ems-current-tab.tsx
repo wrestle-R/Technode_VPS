@@ -145,7 +145,7 @@ export function EmsCurrentTab({
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Current Trend</p>
-          <div className="mt-3 h-72">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={pageData.rows}>
                 <defs>
@@ -249,7 +249,7 @@ export function EmsCurrentTab({
           <p className="text-xs text-muted-foreground">
             Average of IR, IY, IB per hour (24 bars)
           </p>
-          <div className="mt-3 h-80">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourlyAverages}>
                 <CartesianGrid

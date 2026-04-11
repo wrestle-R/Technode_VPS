@@ -77,7 +77,7 @@ export function EmsEnergyTab({
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Cumulative Energy Curves</p>
-          <div className="mt-3 h-80">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={pageData.rows}>
                 <CartesianGrid

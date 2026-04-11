@@ -22,7 +22,7 @@ function ChartTabSkeleton({ tab }: { tab: ChartTab }) {
           {Array.from({ length: 4 }).map((_, index) => (
             <article key={index} className="rounded-2xl border bg-card p-4 shadow-sm">
               <Skeleton className="h-5 w-40 rounded-md" />
-              <Skeleton className="mt-4 h-72 w-full rounded-2xl" />
+              <Skeleton className="mt-4 h-96 w-full rounded-2xl" />
             </article>
           ))}
         </section>
@@ -35,7 +35,7 @@ function ChartTabSkeleton({ tab }: { tab: ChartTab }) {
       <div className="grid gap-4 xl:grid-cols-2">
         <article className="rounded-2xl border bg-card p-4 shadow-sm">
           <Skeleton className="h-5 w-32 rounded-md" />
-          <Skeleton className="mt-4 h-72 w-full rounded-2xl" />
+          <Skeleton className="mt-4 h-96 w-full rounded-2xl" />
         </article>
         <article className="rounded-2xl border bg-card p-4 shadow-sm">
           <Skeleton className="h-5 w-44 rounded-md" />
@@ -48,7 +48,7 @@ function ChartTabSkeleton({ tab }: { tab: ChartTab }) {
         <article className="rounded-2xl border bg-card p-4 shadow-sm xl:col-span-2">
           <Skeleton className="h-5 w-64 rounded-md" />
           <Skeleton className="mt-2 h-4 w-52 rounded-md" />
-          <Skeleton className="mt-4 h-80 w-full rounded-2xl" />
+          <Skeleton className="mt-4 h-96 w-full rounded-2xl" />
         </article>
       </div>
     )
@@ -58,7 +58,7 @@ function ChartTabSkeleton({ tab }: { tab: ChartTab }) {
     <div className="grid gap-4 xl:grid-cols-2">
       <article className="rounded-2xl border bg-card p-4 shadow-sm">
         <Skeleton className="h-5 w-36 rounded-md" />
-        <Skeleton className="mt-4 h-72 w-full rounded-2xl" />
+        <Skeleton className="mt-4 h-96 w-full rounded-2xl" />
         <div className="mt-4 flex items-center justify-between">
           <Skeleton className="h-4 w-44 rounded-md" />
           <div className="flex gap-2">
@@ -69,7 +69,7 @@ function ChartTabSkeleton({ tab }: { tab: ChartTab }) {
       </article>
       <article className="rounded-2xl border bg-card p-4 shadow-sm">
         <Skeleton className="h-5 w-44 rounded-md" />
-        <Skeleton className="mt-4 h-72 w-full rounded-2xl" />
+        <Skeleton className="mt-4 h-96 w-full rounded-2xl" />
       </article>
     </div>
   )
@@ -118,7 +118,7 @@ export function EmsTabContentSkeleton({ tab }: { tab: string }) {
         </div>
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <Skeleton className="h-5 w-44 rounded-md" />
-          <Skeleton className="mt-4 h-72 w-full rounded-2xl" />
+          <Skeleton className="mt-4 h-96 w-full rounded-2xl" />
         </div>
       </div>
     )

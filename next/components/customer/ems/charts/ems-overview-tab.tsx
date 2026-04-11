@@ -261,7 +261,7 @@ export function EmsOverviewTab({
         <article className={gradientCardClassName()}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Voltage + Current Trends</p>
-            <div className="mt-3 h-80">
+            <div className="mt-3 h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={latestRows}>
                   <defs>
@@ -356,7 +356,7 @@ export function EmsOverviewTab({
         <article className={gradientCardClassName()}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Power Factor Health</p>
-            <div className="mt-3 h-80">
+            <div className="mt-3 h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={latestRows}>
                   <defs>
@@ -427,7 +427,7 @@ export function EmsOverviewTab({
         <article className={gradientCardClassName()}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Phase Snapshot</p>
-            <div className="mt-3 h-72">
+            <div className="mt-3 h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={phaseOverview}>
                   <CartesianGrid
@@ -466,7 +466,7 @@ export function EmsOverviewTab({
         <article className={gradientCardClassName()}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Energy Curves</p>
-            <div className="mt-3 h-72">
+            <div className="mt-3 h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={latestRows}>
                   <CartesianGrid

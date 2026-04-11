@@ -34,7 +34,7 @@ export function EmsVoltageTab({ trendRows }: { trendRows: TrendPoint[] }) {
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Line-to-Line Voltage</p>
-          <div className="mt-3 h-72">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={pageData.rows}>
                 <defs>
@@ -113,7 +113,7 @@ export function EmsVoltageTab({ trendRows }: { trendRows: TrendPoint[] }) {
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Line-to-Neutral Voltage</p>
-          <div className="mt-3 h-72">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={pageData.rows}>
                 <defs>

@@ -28,19 +28,27 @@ import { useState } from "react"
 export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
   const [page, setPage] = useState(0)
   const pageData = getPagedTrendRows(trendRows, page)
+  const axisTick = { fontSize: 11, fill: "#64748b" }
+  const tooltipContentStyle = {
+    borderRadius: "10px",
+    border: "1px solid #dbe4f0",
+    backgroundColor: "#ffffff",
+  }
+  const tooltipLabelStyle = { color: "#0f172a", fontWeight: 600 }
+  const legendStyle = { fontSize: 12, color: "#475569", paddingTop: 6 }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="grid gap-4 xl:grid-cols-2"
+      className="grid gap-4"
     >
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Power Factor by Phase</p>
-          <div className="mt-3 h-72">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={pageData.rows}>
+              <LineChart data={pageData.rows} margin={{ top: 8, right: 20, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient
                     id="diagnostic-pfb-line"
@@ -54,34 +62,46 @@ export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid
-                  strokeDasharray="3 3"
+                  strokeDasharray="4 4"
                   stroke="#cbd5e1"
-                  strokeOpacity={0.45}
+                  strokeOpacity={0.4}
                 />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 1.1]} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
+                <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} />
+                <YAxis
+                  domain={[0, 1.1]}
+                  tick={axisTick}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={tooltipContentStyle}
+                  labelStyle={tooltipLabelStyle}
+                  cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }}
+                />
+                <Legend iconType="circle" wrapperStyle={legendStyle} />
                 <Line
                   type="monotone"
                   dataKey="PF-R"
                   stroke={phaseColors.red}
                   dot={false}
-                  strokeWidth={2}
+                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
                 />
                 <Line
                   type="monotone"
                   dataKey="PF-Y"
                   stroke={phaseColors.amber}
                   dot={false}
-                  strokeWidth={2}
+                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
                 />
                 <Line
                   type="monotone"
                   dataKey="PF-B"
                   stroke="url(#diagnostic-pfb-line)"
                   dot={false}
-                  strokeWidth={2}
+                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -114,10 +134,65 @@ export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
           </div>
         </div>
       </article>
+
+      <article className={gradientCardClassName()}>
+        <div className="rounded-[15px] bg-card p-4">
+          <p className="text-sm font-semibold">
+            Energy Analysis (Apparent, Active, Reactive)
+          </p>
+          <div className="mt-3 h-96">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={pageData.rows} margin={{ top: 8, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid
+                  strokeDasharray="4 4"
+                  stroke="#cbd5e1"
+                  strokeOpacity={0.4}
+                />
+                <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} />
+                <YAxis tick={axisTick} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={tooltipContentStyle}
+                  labelStyle={tooltipLabelStyle}
+                  cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }}
+                />
+                <Legend iconType="circle" wrapperStyle={legendStyle} />
+                <Line
+                  type="monotone"
+                  dataKey="KvAh"
+                  name="Apparent"
+                  stroke={phaseColors.indigo}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Kwh"
+                  name="Active"
+                  stroke={phaseColors.green}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="KvArh"
+                  name="Reactive"
+                  stroke={phaseColors.cyan}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </article>
+
       <article className={gradientCardClassName()}>
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Power Mix (Latest)</p>
-          <div className="mt-3 h-72">
+          <div className="mt-3 h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
@@ -139,13 +214,17 @@ export function EmsDiagnosticTab({ trendRows }: { trendRows: TrendPoint[] }) {
                 ]}
               >
                 <CartesianGrid
-                  strokeDasharray="3 3"
+                  strokeDasharray="4 4"
                   stroke="#cbd5e1"
-                  strokeOpacity={0.45}
+                  strokeOpacity={0.4}
                 />
-                <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <XAxis dataKey="metric" tick={axisTick} tickLine={false} axisLine={false} />
+                <YAxis tick={axisTick} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={tooltipContentStyle}
+                  labelStyle={tooltipLabelStyle}
+                  cursor={{ fill: "#f1f5f9", opacity: 0.8 }}
+                />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   <Cell fill={phaseColors.green} />
                   <Cell fill={phaseColors.indigo} />

@@ -278,7 +278,7 @@ export function EmsReportsPanel({
               ) : null}
             </div>
 
-            <div className="h-80 rounded-2xl border border-border/70 bg-white/80 p-2">
+            <div className="h-96 rounded-2xl border border-border/70 bg-white/80 p-2">
               <ResponsiveContainer width="100%" height="100%">
                 {reportType === "consumption" ? (
                   <AreaChart data={chartRows}>
