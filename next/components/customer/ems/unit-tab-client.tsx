@@ -24,6 +24,7 @@ import type {
   EnergyAnalytics,
   EnergyDailyRange,
   HourlyCurrentStats,
+  HourlyVoltageStats,
   ReportRange,
   ReportType,
   SummaryRange,
@@ -77,6 +78,10 @@ export function CustomerUnitTabClient({
     points: [],
     computedAt: new Date(0).toISOString(),
   })
+  const [hourlyVoltage, setHourlyVoltage] = useState<HourlyVoltageStats>({
+    points: [],
+    computedAt: new Date(0).toISOString(),
+  })
   const [energyDailyRange, setEnergyDailyRange] =
     useState<EnergyDailyRange>("30d")
   const [energyAnalytics, setEnergyAnalytics] = useState<EnergyAnalytics | null>(
@@ -88,6 +93,9 @@ export function CustomerUnitTabClient({
   )
   const hourlyCurrentCacheRef = useRef(
     new Map<string, { data: HourlyCurrentStats; fetchedAt: number }>()
+  )
+  const hourlyVoltageCacheRef = useRef(
+    new Map<string, { data: HourlyVoltageStats; fetchedAt: number }>()
   )
   const energyAnalyticsCacheRef = useRef(
     new Map<string, { data: EnergyAnalytics; fetchedAt: number }>()
@@ -399,6 +407,71 @@ export function CustomerUnitTabClient({
   useEffect(() => {
     let cancelled = false
 
+    async function loadHourlyVoltage() {
+      if (tab !== "charts" || selectedChartTab !== "voltage") {
+        return
+      }
+
+      if (!effectiveRtuKey) {
+        setHourlyVoltage({ points: [], computedAt: new Date().toISOString() })
+        return
+      }
+
+      const cacheKey = `${unit.unitId}:${effectiveRtuKey}`
+      const cached = hourlyVoltageCacheRef.current.get(cacheKey)
+      if (cached) {
+        setHourlyVoltage(cached.data)
+      }
+
+      if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+        return
+      }
+
+      try {
+        const response = await fetch(
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/voltage-hourly?rtuKey=${encodeURIComponent(effectiveRtuKey)}`,
+          {
+            cache: "no-store",
+          }
+        )
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = (await response.json()) as { hourly?: HourlyVoltageStats }
+        if (!cancelled && data.hourly) {
+          hourlyVoltageCacheRef.current.set(cacheKey, {
+            data: data.hourly,
+            fetchedAt: Date.now(),
+          })
+          setHourlyVoltage(data.hourly)
+        }
+      } catch {
+        return
+      }
+    }
+
+    void loadHourlyVoltage()
+
+    const interval =
+      tab === "charts" && selectedChartTab === "voltage"
+        ? window.setInterval(() => {
+            void loadHourlyVoltage()
+          }, 30_000)
+        : null
+
+    return () => {
+      cancelled = true
+      if (interval) {
+        window.clearInterval(interval)
+      }
+    }
+  }, [effectiveRtuKey, selectedChartTab, tab, unit.unitId])
+
+  useEffect(() => {
+    let cancelled = false
+
     async function loadEnergyAnalytics() {
       if (tab !== "charts" || selectedChartTab !== "energy") {
         return
@@ -616,7 +689,12 @@ export function CustomerUnitTabClient({
           />
         </div>
 
-        {selectedChartTab === "voltage" ? <EmsVoltageTab trendRows={trendRows} /> : null}
+        {selectedChartTab === "voltage" ? (
+          <EmsVoltageTab
+            trendRows={trendRows}
+            hourlyVoltagePoints={hourlyVoltage.points}
+          />
+        ) : null}
         {selectedChartTab === "overview" ? (
           <EmsOverviewTab
             trendRows={trendRows}

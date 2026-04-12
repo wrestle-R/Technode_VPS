@@ -117,6 +117,17 @@ function finiteMetric(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
+function shouldScaleMetricKey(key: string) {
+  const normalized = key.trim().toUpperCase()
+  if (normalized.startsWith("PF")) {
+    return false
+  }
+  if (normalized === "FREQ" || normalized === "FREQUENCY") {
+    return false
+  }
+  return true
+}
+
 function rangeStartDate(range: SummaryRange) {
   const now = Date.now()
   if (range === "24h") {
@@ -375,11 +386,17 @@ function formatMappedArray(
     const orderedMetrics = Object.entries(rtu.metrics ?? {})
       .map(([key, value]) => {
         const field = fieldTemplate.find((item) => item.key === key)
+        const numericValue =
+          typeof value === "number"
+            ? shouldScaleMetricKey(key)
+              ? value * scalingFactor
+              : value
+            : value
         return {
           key,
           label: field?.label ?? key,
           order: field?.order ?? Number.MAX_SAFE_INTEGER,
-          value: typeof value === "number" ? value * scalingFactor : value,
+          value: numericValue,
         }
       })
       .sort((a, b) => a.order - b.order)
@@ -987,6 +1004,149 @@ export async function getCustomerEmsCurrentHourlyStats({
         slot.values.length > 0
           ? slot.values.reduce((sum, value) => sum + value, 0) /
             slot.values.length
+          : null,
+    })),
+    computedAt: new Date().toISOString(),
+  }
+}
+
+export async function getCustomerEmsVoltageHourlyStats({
+  customerId,
+  unitId,
+  rtuKey,
+}: {
+  customerId: number
+  unitId: string
+  rtuKey: string
+}) {
+  const unit = await prisma.emsUnit.findFirst({
+    where: {
+      unit_id: unitId,
+      customer_id: customerId,
+    },
+    select: {
+      id: true,
+      unit_field_template: true,
+      rtu_overrides: true,
+      scalingFactor: true,
+    },
+  })
+
+  if (!unit) {
+    return null
+  }
+
+  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
+  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
+
+  const now = new Date()
+  const currentHour = new Date(now)
+  currentHour.setMinutes(0, 0, 0)
+  const startAt = new Date(currentHour)
+  startAt.setHours(startAt.getHours() - 11)
+
+  const logs = await prisma.emsLog.findMany({
+    where: {
+      ems_unit_id: unit.id,
+      device_timestamp: {
+        gte: startAt,
+      },
+    },
+    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
+    select: {
+      device_timestamp: true,
+      raw_rtu_array: true,
+    },
+  })
+
+  const hourlySlots = Array.from({ length: 12 }, (_, index) => {
+    const hourStart = new Date(startAt)
+    hourStart.setHours(startAt.getHours() + index)
+    return {
+      key: hourStart.getTime(),
+      timestamp: hourStart.toISOString(),
+      hour: hourStart.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      llValues: [] as number[],
+      lnValues: [] as number[],
+    }
+  })
+
+  const slotByTime = new Map(hourlySlots.map((slot) => [slot.key, slot]))
+
+  for (const log of logs) {
+    const mappedRtus = formatMappedArray(
+      log.raw_rtu_array,
+      unitTemplate,
+      overrides,
+      scalingFactor
+    )
+
+    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
+    if (!rtu) {
+      continue
+    }
+
+    const metricMap = new Map(
+      rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
+    )
+    const vry = metricMap.get("VRY")
+    const vyb = metricMap.get("VYB")
+    const vbr = metricMap.get("VBR")
+    const vrn = metricMap.get("VRN")
+    const vyn = metricMap.get("VYN")
+    const vbn = metricMap.get("VBN")
+
+    const llValues = [vry, vyb, vbr].filter(
+      (value): value is number => value != null
+    )
+    const lnValues = [vrn, vyn, vbn].filter(
+      (value): value is number => value != null
+    )
+
+    if (llValues.length === 0 && lnValues.length === 0) {
+      continue
+    }
+
+    const hourStart = new Date(log.device_timestamp)
+    hourStart.setMinutes(0, 0, 0)
+    const slot = slotByTime.get(hourStart.getTime())
+
+    if (!slot) {
+      continue
+    }
+
+    if (llValues.length > 0) {
+      slot.llValues.push(
+        llValues.reduce((sum, value) => sum + value, 0) / llValues.length
+      )
+    }
+
+    if (lnValues.length > 0) {
+      slot.lnValues.push(
+        lnValues.reduce((sum, value) => sum + value, 0) / lnValues.length
+      )
+    }
+  }
+
+  return {
+    points: hourlySlots.map((slot) => ({
+      timestamp: slot.timestamp,
+      hour: slot.hour,
+      averageVoltageLL:
+        slot.llValues.length > 0
+          ? slot.llValues.reduce((sum, value) => sum + value, 0) /
+            slot.llValues.length
+          : null,
+      averageVoltageLN:
+        slot.lnValues.length > 0
+          ? slot.lnValues.reduce((sum, value) => sum + value, 0) /
+            slot.lnValues.length
           : null,
     })),
     computedAt: new Date().toISOString(),

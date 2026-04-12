@@ -240,6 +240,10 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
                   value={scalingFactor}
                   onChange={(event) => setScalingFactor(event.target.value)}
                 />
+                <span className="text-xs text-muted-foreground">
+                  Applies to voltage, current, power, and energy metrics only.
+                  Power factor and frequency are not scaled.
+                </span>
               </label>
             </div>
 

@@ -20,6 +20,7 @@ import {
 
 import {
   chartGradients,
+  dynamicGaugeMax,
   formatNumber,
   getPagedTrendRows,
   gradientCardClassName,
@@ -39,14 +40,16 @@ const GAUGE_MAX_CURRENT = 180
 function CurrentGauge({
   label,
   value,
+  max,
   color,
 }: {
   label: "IR" | "IY" | "IB"
   value: number
+  max: number
   color: string
 }) {
-  const clamped = Math.max(0, Math.min(value, GAUGE_MAX_CURRENT))
-  const angle = 180 - (clamped / GAUGE_MAX_CURRENT) * 180
+  const clamped = Math.max(0, Math.min(value, max))
+  const angle = 180 - (clamped / max) * 180
   const radius = 68
   const center = 100
   const angleInRadian = (Math.PI / 180) * angle
@@ -66,14 +69,14 @@ function CurrentGauge({
             innerRadius="70%"
             outerRadius="100%"
             barSize={14}
-            data={[{ value: GAUGE_MAX_CURRENT }]}
+            data={[{ value: max }]}
             startAngle={180}
             endAngle={0}
           >
             <PolarGrid radialLines={false} stroke="#d1d5db" />
             <PolarAngleAxis
               type="number"
-              domain={[0, GAUGE_MAX_CURRENT]}
+              domain={[0, max]}
               tickCount={5}
               angleAxisId={0}
               tick={{ fontSize: 10, fill: "#6b7280" }}
@@ -124,6 +127,10 @@ export function EmsCurrentTab({
   const latestIR = metricValueFromLatest(trendRows, "IR") ?? 0
   const latestIY = metricValueFromLatest(trendRows, "IY") ?? 0
   const latestIB = metricValueFromLatest(trendRows, "IB") ?? 0
+  const currentGaugeMax = dynamicGaugeMax(
+    [latestIR, latestIY, latestIB],
+    GAUGE_MAX_CURRENT
+  )
   const hourlyAverages = useMemo(
     () =>
       hourlyCurrentPoints.map((point) => ({
@@ -226,15 +233,22 @@ export function EmsCurrentTab({
         <div className="rounded-[15px] bg-card p-4">
           <p className="text-sm font-semibold">Latest Phase Currents</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <CurrentGauge label="IR" value={latestIR} color={phaseColors.red} />
+            <CurrentGauge
+              label="IR"
+              value={latestIR}
+              max={currentGaugeMax}
+              color={phaseColors.red}
+            />
             <CurrentGauge
               label="IY"
               value={latestIY}
+              max={currentGaugeMax}
               color={phaseColors.amber}
             />
             <CurrentGauge
               label="IB"
               value={latestIB}
+              max={currentGaugeMax}
               color={phaseColors.blue}
             />
           </div>

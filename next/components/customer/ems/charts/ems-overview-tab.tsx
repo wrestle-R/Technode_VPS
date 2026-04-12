@@ -21,6 +21,7 @@ import {
 } from "recharts"
 
 import {
+  dynamicGaugeMax,
   formatNumber,
   getPagedTrendRows,
   chartGradients,
@@ -34,7 +35,7 @@ import type {
   SummaryStats,
   TrendPoint,
 } from "@/components/customer/ems/types"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 type OverviewSnapshot = {
   voltageLL: number | null
@@ -153,6 +154,22 @@ export function EmsOverviewTab({
 }) {
   const [page, setPage] = useState(0)
   const pageData = getPagedTrendRows(trendRows, page)
+  const voltageGaugeMax = useMemo(
+    () => dynamicGaugeMax([snapshot.voltageLL], 800),
+    [snapshot.voltageLL]
+  )
+  const currentGaugeMax = useMemo(
+    () => dynamicGaugeMax([snapshot.currentTotal], 300),
+    [snapshot.currentTotal]
+  )
+  const powerFactorGaugeMax = useMemo(
+    () => dynamicGaugeMax([snapshot.powerFactorAvg], 2),
+    [snapshot.powerFactorAvg]
+  )
+  const frequencyGaugeMax = useMemo(
+    () => dynamicGaugeMax([snapshot.frequency], 70),
+    [snapshot.frequency]
+  )
 
   const phaseOverview = [
     {
@@ -193,7 +210,7 @@ export function EmsOverviewTab({
               label="Voltage-LL"
               value={snapshot.voltageLL}
               min={0}
-              max={800}
+              max={voltageGaugeMax}
               unit="V"
               accent={phaseColors.red}
             />
@@ -210,7 +227,7 @@ export function EmsOverviewTab({
               label="Current"
               value={snapshot.currentTotal}
               min={0}
-              max={300}
+              max={currentGaugeMax}
               unit="A"
               accent={phaseColors.amber}
             />
@@ -227,7 +244,7 @@ export function EmsOverviewTab({
               label="Power Factor"
               value={snapshot.powerFactorAvg}
               min={0}
-              max={2}
+              max={powerFactorGaugeMax}
               unit=""
               accent={phaseColors.blue}
             />
@@ -244,7 +261,7 @@ export function EmsOverviewTab({
               label="Frequency"
               value={snapshot.frequency}
               min={0}
-              max={70}
+              max={frequencyGaugeMax}
               unit="Hz"
               accent={phaseColors.green}
             />

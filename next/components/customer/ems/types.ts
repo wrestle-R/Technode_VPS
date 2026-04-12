@@ -67,6 +67,18 @@ export type HourlyCurrentStats = {
   computedAt: string
 }
 
+export type HourlyVoltagePoint = {
+  timestamp: string
+  hour: string
+  averageVoltageLL: number | null
+  averageVoltageLN: number | null
+}
+
+export type HourlyVoltageStats = {
+  points: HourlyVoltagePoint[]
+  computedAt: string
+}
+
 export type ChartTab =
   | "overview"
   | "voltage"

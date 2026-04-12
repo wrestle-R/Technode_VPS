@@ -118,6 +118,28 @@ export function formatNumber(value: number | null, digits = 2) {
   return value == null ? "-" : value.toFixed(digits)
 }
 
+export function dynamicGaugeMax(
+  values: Array<number | null | undefined>,
+  fallbackMax: number
+) {
+  const finiteValues = values.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value)
+  )
+
+  if (finiteValues.length === 0) {
+    return fallbackMax
+  }
+
+  const highest = Math.max(...finiteValues)
+  if (highest <= fallbackMax) {
+    return fallbackMax
+  }
+
+  const padded = highest * 1.12
+  const step = fallbackMax >= 100 ? 20 : fallbackMax >= 20 ? 5 : 1
+  return Math.ceil(padded / step) * step
+}
+
 export function gradientCardClassName(extra?: string) {
   return `rounded-2xl bg-linear-to-r from-[#2b3242] to-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)] ${extra ?? ""}`
 }
