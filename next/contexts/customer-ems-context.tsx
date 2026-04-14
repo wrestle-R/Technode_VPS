@@ -288,3 +288,7 @@ export function useCustomerEms() {
 
   return context
 }
+
+export function useOptionalCustomerEms() {
+  return useContext(CustomerEmsContext)
+}
