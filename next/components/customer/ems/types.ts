@@ -22,6 +22,18 @@ export type UnitLog = {
   rtus: RtuEntry[]
 }
 
+export type CustomerUnitSummary = {
+  id: string
+  unitId: string
+  status: string
+  locationLabel: string | null
+  latitude: number | null
+  longitude: number | null
+  deviceType: string | null
+  lastSeenAt: string | null
+  slaveCount: number
+}
+
 export type CustomerUnitDetail = {
   id: string
   unitId: string

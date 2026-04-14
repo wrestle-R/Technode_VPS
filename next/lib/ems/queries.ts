@@ -13,7 +13,7 @@ function asNumber(value: { toString(): string } | null | undefined) {
 }
 
 const UNIT_DETAIL_LOG_LIMIT = 500
-const ONLINE_TIMEOUT_MS = 5 * 60 * 1000
+const ONLINE_TIMEOUT_MS = 1 * 60 * 1000
 
 function readScalingFactor(unit: Record<string, unknown>) {
   const raw =

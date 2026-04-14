@@ -4,8 +4,10 @@ import { redirect } from "next/navigation"
 import { CustomerSidebar } from "@/components/customer/customer-sidebar"
 import { Topbar } from "@/components/shared/topbar"
 import { SidebarProvider } from "@/components/ui/sidebar"
+import { CustomerEmsProvider } from "@/contexts/customer-ems-context"
 import { UserProvider } from "@/contexts/user-context"
 import { getCustomerSessionFromCookies } from "@/lib/auth"
+import { getCustomerEmsUnits } from "@/lib/ems/queries"
 
 export async function generateMetadata() {
   const session = await getCustomerSessionFromCookies()
@@ -26,6 +28,8 @@ export default async function CustomerLayout({
     redirect("/login")
   }
 
+  const units = await getCustomerEmsUnits(session.customerId)
+
   return (
     <UserProvider
       initialUser={{
@@ -37,20 +41,22 @@ export default async function CustomerLayout({
         companyBrowserIconUrl: session.companyBrowserIconUrl,
       }}
     >
-      <SidebarProvider>
-        <CustomerSidebar
-          companySidebarImageUrl={session.companySidebarImageUrl}
-          companyName={session.companyName}
-        />
-        <main className="app-page-surface relative flex h-screen w-full min-w-0 flex-col overflow-x-hidden p-2 md:p-3">
-          <div className="app-card-surface sticky top-2 z-30 mb-2 shrink-0 overflow-hidden rounded-2xl border shadow-sm">
-            <Topbar />
-          </div>
-          <div className="app-card-surface min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded-[24px] border p-4 shadow-sm md:p-6">
-            {children}
-          </div>
-        </main>
-      </SidebarProvider>
+      <CustomerEmsProvider initialUnits={units}>
+        <SidebarProvider>
+          <CustomerSidebar
+            companySidebarImageUrl={session.companySidebarImageUrl}
+            companyName={session.companyName}
+          />
+          <main className="app-page-surface relative flex h-screen w-full min-w-0 flex-col overflow-x-hidden p-2 md:p-3">
+            <div className="app-card-surface sticky top-2 z-30 mb-2 shrink-0 overflow-hidden rounded-2xl border shadow-sm">
+              <Topbar />
+            </div>
+            <div className="app-card-surface min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded-[24px] border p-4 shadow-sm md:p-6">
+              {children}
+            </div>
+          </main>
+        </SidebarProvider>
+      </CustomerEmsProvider>
     </UserProvider>
   )
 }

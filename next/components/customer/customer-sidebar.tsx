@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 import { useUser } from "@/contexts/user-context"
-import { useDevices } from "@/hooks/use-devices"
+import { useCustomerEms } from "@/contexts/customer-ems-context"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -56,7 +56,7 @@ export function CustomerSidebar({
   const router = useRouter()
   const { user, clearUser } = useUser()
   const { state } = useSidebar()
-  const { units, isLoading: devicesLoading } = useDevices(true)
+  const { units, isUnitsLoading: devicesLoading } = useCustomerEms()
 
   const formatUnitId = (value: string) => {
     if (value.length <= 18) {
@@ -66,11 +66,11 @@ export function CustomerSidebar({
     return `${value.slice(0, 8)}...${value.slice(-6)}`
   }
 
-  const getTypeLabel = (deviceType: "ems" | "other") => {
+  const getTypeLabel = (deviceType: string | null) => {
     return deviceType === "ems" ? "EMS" : "DEVICE"
   }
 
-  const getTypeIcon = (deviceType: "ems" | "other") => {
+  const getTypeIcon = (deviceType: string | null) => {
     return deviceType === "ems" ? Zap : Cpu
   }
 

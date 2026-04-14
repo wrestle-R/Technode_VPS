@@ -26,6 +26,7 @@ import { EmsEnergyTab } from "@/components/customer/ems/charts/ems-energy-tab"
 import { EmsDiagnosticTab } from "@/components/customer/ems/charts/ems-diagnostic-tab"
 import { EmsLogsTable } from "@/components/customer/ems/logs/ems-logs-table"
 import { EmsReportsPanel } from "@/components/customer/ems/reports/ems-reports-panel"
+import { useCustomerEms } from "@/contexts/customer-ems-context"
 import { useUser } from "@/contexts/user-context"
 import type {
   ChartTab,
@@ -114,7 +115,9 @@ export function CustomerUnitTabClient({
 }) {
   const CACHE_TTL_MS = 10_000
   const { user } = useUser()
-  const [unit, setUnit] = useState(initialUnit)
+  const { activeUnit, refreshCurrentUnit, setActiveUnit } = useCustomerEms()
+  const unit =
+    activeUnit && activeUnit.unitId === initialUnit.unitId ? activeUnit : initialUnit
   const [selectedRtuKey, setSelectedRtuKey] = useState(
     initialUnit.latestRtus[0]?.rtuKey ?? ""
   )
@@ -138,7 +141,6 @@ export function CustomerUnitTabClient({
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(
     undefined
   )
-  const [hasRefreshError, setHasRefreshError] = useState(false)
   const [hourlyCurrent, setHourlyCurrent] = useState<HourlyCurrentStats>({
     points: [],
     computedAt: new Date(0).toISOString(),
@@ -186,52 +188,22 @@ export function CustomerUnitTabClient({
   const logsPageRequestTokenRef = useRef(0)
 
   useEffect(() => {
+    setActiveUnit(initialUnit)
+  }, [initialUnit, setActiveUnit])
+
+  useEffect(() => {
     let cancelled = false
 
     async function load() {
-      try {
-        const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(initialUnit.unitId)}`,
-          {
-            cache: "no-store",
-          }
+      const nextUnit = await refreshCurrentUnit(initialUnit.unitId)
+      if (!cancelled && nextUnit) {
+        setSelectedRtuKey(
+          (current) => current || nextUnit.latestRtus[0]?.rtuKey || ""
         )
-        if (!response.ok) {
-          if (!cancelled && !hasRefreshError) {
-            setHasRefreshError(true)
-            toast.error("Unable to refresh unit data")
-          }
-          return
-        }
-
-        const data = (await response.json()) as { unit?: CustomerUnitDetail }
-        const nextUnit = data.unit
-        if (!cancelled && nextUnit) {
-          setUnit((current) => {
-            const currentLatestLogId = current.logs[0]?.id ?? null
-            const nextLatestLogId = nextUnit.logs[0]?.id ?? null
-            const hasNewLog = currentLatestLogId !== nextLatestLogId
-            const hasStatusChange =
-              current.status !== nextUnit.status ||
-              current.lastSeenAt !== nextUnit.lastSeenAt
-
-            return hasNewLog || hasStatusChange ? nextUnit : current
-          })
-          setSelectedRtuKey(
-            (current) => current || nextUnit.latestRtus[0]?.rtuKey || ""
-          )
-          if (hasRefreshError) {
-            setHasRefreshError(false)
-            toast.success("Unit data reconnected")
-          }
-        }
-      } catch {
-        if (!cancelled && !hasRefreshError) {
-          setHasRefreshError(true)
-          toast.error("Unable to refresh unit data")
-        }
       }
     }
+
+    void load()
 
     const interval = window.setInterval(() => {
       void load()
@@ -241,7 +213,7 @@ export function CustomerUnitTabClient({
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [hasRefreshError, initialUnit.unitId])
+  }, [initialUnit.unitId, refreshCurrentUnit])
 
   useEffect(() => {
     if (tab !== "charts") {
