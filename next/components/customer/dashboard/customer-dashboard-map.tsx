@@ -28,6 +28,11 @@ type MarkerIcons = {
 
 export function CustomerDashboardMap({ devices }: { devices: CustomerDeviceMapData[] }) {
   const [icons, setIcons] = useState<MarkerIcons | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -64,9 +69,13 @@ export function CustomerDashboardMap({ devices }: { devices: CustomerDeviceMapDa
     }
   }, [])
 
-  const isClient = typeof window !== "undefined"
-
-  if (!isClient) return <div className="flex-1 min-h-[400px] w-full rounded-[24px] border app-card-surface animate-pulse" />
+  if (!isMounted) {
+    return (
+      <div className="relative flex-1 min-h-[400px] w-full overflow-hidden rounded-[24px] border app-card-surface bg-slate-50 dark:bg-slate-900">
+        <div className="h-full w-full animate-pulse bg-slate-200/70 dark:bg-slate-800/70" />
+      </div>
+    )
+  }
 
   return (
     <div className="relative flex-1 min-h-[400px] w-full overflow-hidden rounded-[24px] border app-card-surface bg-slate-50 dark:bg-slate-900">

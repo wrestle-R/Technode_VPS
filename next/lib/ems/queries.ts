@@ -1248,3 +1248,365 @@ export async function getCustomerEmsEnergyAnalytics({
     generatedAt: new Date().toISOString(),
   }
 }
+
+type EmsLogsRange = {
+  startAt?: Date
+  endAt?: Date
+}
+
+function buildDeviceTimestampFilter({ startAt, endAt }: EmsLogsRange) {
+  if (!startAt && !endAt) {
+    return undefined
+  }
+
+  return {
+    ...(startAt ? { gte: startAt } : {}),
+    ...(endAt ? { lte: endAt } : {}),
+  }
+}
+
+async function getCustomerUnitForLogs({
+  customerId,
+  unitId,
+}: {
+  customerId: number
+  unitId: string
+}) {
+  return prisma.emsUnit.findFirst({
+    where: {
+      unit_id: unitId,
+      customer_id: customerId,
+    },
+    select: {
+      id: true,
+      unit_id: true,
+      unit_field_template: true,
+      rtu_overrides: true,
+      scalingFactor: true,
+    },
+  })
+}
+
+export type CustomerEmsLogsPage = {
+  logs: Array<{
+    id: string
+    deviceTimestamp: string
+    status: string
+    rtus: ReturnType<typeof formatMappedArray>
+  }>
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export async function getCustomerEmsLogsPage({
+  customerId,
+  unitId,
+  cursor,
+  limit,
+}: {
+  customerId: number
+  unitId: string
+  cursor?: string | null
+  limit: number
+}): Promise<CustomerEmsLogsPage | null> {
+  const unit = await getCustomerUnitForLogs({ customerId, unitId })
+  if (!unit) {
+    return null
+  }
+
+  const normalizedLimit = Math.min(Math.max(Math.floor(limit), 1), 200)
+  let cursorId: bigint | null = null
+  if (cursor) {
+    try {
+      cursorId = BigInt(cursor)
+    } catch {
+      throw new Error("Invalid logs cursor")
+    }
+  }
+
+  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
+  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
+  const scalingFactor = readScalingFactor(
+    unit as unknown as Record<string, unknown>
+  )
+
+  const rows = await prisma.emsLog.findMany({
+    where: {
+      ems_unit_id: unit.id,
+      ...(cursorId ? { id: { lt: cursorId } } : {}),
+    },
+    orderBy: [{ id: "desc" }],
+    take: normalizedLimit + 1,
+    select: {
+      id: true,
+      device_timestamp: true,
+      raw_unit_payload: true,
+      raw_rtu_array: true,
+    },
+  })
+
+  const hasMore = rows.length > normalizedLimit
+  const pageRows = hasMore ? rows.slice(0, normalizedLimit) : rows
+  const logs = pageRows.map((log) => ({
+    id: log.id.toString(),
+    deviceTimestamp: log.device_timestamp.toISOString(),
+    status: inferStatus(log.raw_unit_payload, log.device_timestamp),
+    rtus: formatMappedArray(
+      log.raw_rtu_array,
+      unitTemplate,
+      overrides,
+      scalingFactor
+    ),
+  }))
+
+  return {
+    logs,
+    nextCursor:
+      hasMore && pageRows.length > 0
+        ? pageRows[pageRows.length - 1]?.id.toString() ?? null
+        : null,
+    hasMore,
+  }
+}
+
+export type CustomerRawCsvRow = {
+  timestamp: string
+  kwh: number | null
+  kvah: number | null
+  kvarh: number | null
+  voltageRn: number | null
+  voltageYn: number | null
+  voltageBn: number | null
+  voltageRy: number | null
+  voltageYb: number | null
+  voltageBr: number | null
+  currentR: number | null
+  currentY: number | null
+  currentB: number | null
+  kwR: number | null
+  kwY: number | null
+  kwB: number | null
+  pfR: number | null
+  pfY: number | null
+  pfB: number | null
+  frequency: number | null
+}
+
+function metricFromMap(map: Map<string, number | null>, key: string) {
+  const value = map.get(key)
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function mapRawCsvRow({
+  log,
+  unitTemplate,
+  overrides,
+  scalingFactor,
+  rtuKey,
+}: {
+  log: {
+    device_timestamp: Date
+    raw_rtu_array: Prisma.JsonValue
+  }
+  unitTemplate: EmsFieldTemplateEntry[]
+  overrides: ReturnType<typeof normalizeRtuOverrides>
+  scalingFactor: number
+  rtuKey: string
+}) {
+  const mappedRtus = formatMappedArray(
+    log.raw_rtu_array,
+    unitTemplate,
+    overrides,
+    scalingFactor
+  )
+  const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
+  if (!rtu) {
+    return null
+  }
+
+  const metricMap = new Map(
+    rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
+  )
+
+  return {
+    timestamp: log.device_timestamp.toISOString(),
+    kwh: metricFromMap(metricMap, "Kwh"),
+    kvah: metricFromMap(metricMap, "KvAh"),
+    kvarh: metricFromMap(metricMap, "KvArh"),
+    voltageRn: metricFromMap(metricMap, "VRN"),
+    voltageYn: metricFromMap(metricMap, "VYN"),
+    voltageBn: metricFromMap(metricMap, "VBN"),
+    voltageRy: metricFromMap(metricMap, "VRY"),
+    voltageYb: metricFromMap(metricMap, "VYB"),
+    voltageBr: metricFromMap(metricMap, "VBR"),
+    currentR: metricFromMap(metricMap, "IR"),
+    currentY: metricFromMap(metricMap, "IY"),
+    currentB: metricFromMap(metricMap, "IB"),
+    kwR: metricFromMap(metricMap, "KW-R"),
+    kwY: metricFromMap(metricMap, "KW-Y"),
+    kwB: metricFromMap(metricMap, "KW-B"),
+    pfR: metricFromMap(metricMap, "PF-R"),
+    pfY: metricFromMap(metricMap, "PF-Y"),
+    pfB: metricFromMap(metricMap, "PF-B"),
+    frequency: metricFromMap(metricMap, "Freq"),
+  } satisfies CustomerRawCsvRow
+}
+
+async function getCustomerRawRowsIteratorContext({
+  customerId,
+  unitId,
+}: {
+  customerId: number
+  unitId: string
+}) {
+  const unit = await getCustomerUnitForLogs({ customerId, unitId })
+  if (!unit) {
+    return null
+  }
+
+  return {
+    unit,
+    unitTemplate: normalizeFieldTemplate(unit.unit_field_template),
+    overrides: normalizeRtuOverrides(unit.rtu_overrides),
+    scalingFactor: readScalingFactor(unit as unknown as Record<string, unknown>),
+  }
+}
+
+export async function countCustomerEmsRawRows({
+  customerId,
+  unitId,
+  rtuKey,
+  startAt,
+  endAt,
+  batchSize = 2_000,
+}: {
+  customerId: number
+  unitId: string
+  rtuKey: string
+  startAt?: Date
+  endAt?: Date
+  batchSize?: number
+}): Promise<number | null> {
+  const context = await getCustomerRawRowsIteratorContext({ customerId, unitId })
+  if (!context) {
+    return null
+  }
+
+  const safeBatchSize = Math.min(Math.max(Math.floor(batchSize), 100), 10_000)
+  const deviceTimestampFilter = buildDeviceTimestampFilter({ startAt, endAt })
+  let cursorId: bigint | null = null
+  let count = 0
+
+  while (true) {
+    const whereClause: Record<string, unknown> = {
+      ems_unit_id: context.unit.id,
+      ...(deviceTimestampFilter
+        ? { device_timestamp: deviceTimestampFilter }
+        : {}),
+      ...(cursorId ? { id: { gt: cursorId } } : {}),
+    }
+
+    const rows = await prisma.emsLog.findMany({
+      where: whereClause,
+      orderBy: [{ id: "asc" }],
+      take: safeBatchSize,
+      select: {
+        id: true,
+        device_timestamp: true,
+        raw_rtu_array: true,
+      },
+    })
+
+    if (rows.length === 0) {
+      break
+    }
+
+    for (const log of rows) {
+      const row = mapRawCsvRow({
+        log,
+        unitTemplate: context.unitTemplate,
+        overrides: context.overrides,
+        scalingFactor: context.scalingFactor,
+        rtuKey,
+      })
+      if (row) {
+        count += 1
+      }
+    }
+
+    cursorId = rows[rows.length - 1]?.id ?? null
+    if (rows.length < safeBatchSize) {
+      break
+    }
+  }
+
+  return count
+}
+
+export async function* streamCustomerRawRows({
+  customerId,
+  unitId,
+  rtuKey,
+  startAt,
+  endAt,
+  batchSize = 2_000,
+}: {
+  customerId: number
+  unitId: string
+  rtuKey: string
+  startAt?: Date
+  endAt?: Date
+  batchSize?: number
+}): AsyncGenerator<CustomerRawCsvRow, void, void> {
+  const context = await getCustomerRawRowsIteratorContext({ customerId, unitId })
+  if (!context) {
+    return
+  }
+
+  const safeBatchSize = Math.min(Math.max(Math.floor(batchSize), 100), 10_000)
+  const deviceTimestampFilter = buildDeviceTimestampFilter({ startAt, endAt })
+  let cursorId: bigint | null = null
+
+  while (true) {
+    const whereClause: Record<string, unknown> = {
+      ems_unit_id: context.unit.id,
+      ...(deviceTimestampFilter
+        ? { device_timestamp: deviceTimestampFilter }
+        : {}),
+      ...(cursorId ? { id: { gt: cursorId } } : {}),
+    }
+
+    const rows = await prisma.emsLog.findMany({
+      where: whereClause,
+      orderBy: [{ id: "asc" }],
+      take: safeBatchSize,
+      select: {
+        id: true,
+        device_timestamp: true,
+        raw_rtu_array: true,
+      },
+    })
+
+    if (rows.length === 0) {
+      break
+    }
+
+    for (const log of rows) {
+      const row = mapRawCsvRow({
+        log,
+        unitTemplate: context.unitTemplate,
+        overrides: context.overrides,
+        scalingFactor: context.scalingFactor,
+        rtuKey,
+      })
+      if (row) {
+        yield row
+      }
+    }
+
+    cursorId = rows[rows.length - 1]?.id ?? null
+    if (rows.length < safeBatchSize) {
+      break
+    }
+  }
+}

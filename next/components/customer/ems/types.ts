@@ -90,6 +90,10 @@ export type ReportRange = "24h" | "7d" | "30d" | "custom"
 
 export type ReportType = "raw" | "analytical" | "consumption"
 
+export type ConsumptionRange = "daily" | "weekly" | "monthly"
+
+export type ReportExportFormat = "csv" | "pdf"
+
 export type EnergyDailyRange = "3d" | "7d" | "30d"
 
 export type EnergyCumulativePoint = {

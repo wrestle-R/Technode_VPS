@@ -9,6 +9,16 @@ import {
   metricValueFromLatest,
   statusClasses,
 } from "@/components/customer/ems/helpers"
+import {
+  buildAnalyticalReportModel,
+  buildConsumptionReportModel,
+  buildCsvExport,
+  buildPrintableReportHtml,
+  buildRawReportModel,
+  consumptionRangeLabel,
+  reportDateRangeLabel,
+  selectReportRows,
+} from "@/components/customer/ems/reports/report-export"
 import { EmsChartTabs } from "@/components/customer/ems/charts/ems-chart-tabs"
 import { EmsOverviewTab } from "@/components/customer/ems/charts/ems-overview-tab"
 import { EmsVoltageTab } from "@/components/customer/ems/charts/ems-voltage-tab"
@@ -20,15 +30,18 @@ import { EmsReportsPanel } from "@/components/customer/ems/reports/ems-reports-p
 import { useUser } from "@/contexts/user-context"
 import type {
   ChartTab,
+  ConsumptionRange,
   CustomerUnitDetail,
   EnergyAnalytics,
   EnergyDailyRange,
   HourlyCurrentStats,
   HourlyVoltageStats,
+  ReportExportFormat,
   ReportRange,
   ReportType,
   SummaryRange,
   SummaryStats,
+  UnitLog,
 } from "@/components/customer/ems/types"
 
 const chartTabs: ChartTab[] = [
@@ -39,8 +52,58 @@ const chartTabs: ChartTab[] = [
   "diagnostic",
 ]
 
+const LOGS_PAGE_SIZE = 50
+
+type LogsApiResponse = {
+  logs: UnitLog[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+type LogsPageCache = {
+  rows: UnitLog[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 function isChartTab(value: string): value is ChartTab {
   return chartTabs.includes(value as ChartTab)
+}
+
+function toDateParam(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function mapLogsForRtu(logs: UnitLog[], rtuKey: string) {
+  return logs
+    .map((log) => {
+      const rtu = log.rtus.find((entry) => entry.rtuKey === rtuKey)
+      if (!rtu) {
+        return null
+      }
+
+      return {
+        id: log.id,
+        deviceTimestamp: log.deviceTimestamp,
+        metrics: rtu.metrics,
+      }
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+}
+
+function buildInitialLogsPage(logs: UnitLog[]): LogsPageCache {
+  const rows = logs.slice(0, LOGS_PAGE_SIZE)
+  const hasMore = logs.length > LOGS_PAGE_SIZE
+
+  return {
+    rows,
+    nextCursor:
+      hasMore && rows.length > 0 ? rows[rows.length - 1]?.id ?? null : null,
+    hasMore,
+  }
 }
 
 export function CustomerUnitTabClient({
@@ -58,8 +121,11 @@ export function CustomerUnitTabClient({
   )
   const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("overview")
   const chartTabStorageKey = `ems:chart-tab:${initialUnit.unitId}`
-  const [reportRange, setReportRange] = useState<ReportRange>("24h")
+  const [reportRange, setReportRange] = useState<ReportRange>("30d")
   const [reportType, setReportType] = useState<ReportType>("raw")
+  const [consumptionRange, setConsumptionRange] =
+    useState<ConsumptionRange>("monthly")
+  const [unitPrice, setUnitPrice] = useState(8.5)
   const [summaryRange, setSummaryRange] = useState<SummaryRange>("7d")
   const [summary, setSummary] = useState<SummaryStats>({
     voltage: { max: null, min: null, avg: null },
@@ -88,6 +154,16 @@ export function CustomerUnitTabClient({
     null
   )
   const [isEnergyAnalyticsLoading, setIsEnergyAnalyticsLoading] = useState(false)
+  const initialLogsPage = buildInitialLogsPage(initialUnit.logs)
+  const [logsPageIndex, setLogsPageIndex] = useState(0)
+  const [logsPageRows, setLogsPageRows] = useState<UnitLog[]>(initialLogsPage.rows)
+  const [logsHasMore, setLogsHasMore] = useState(initialLogsPage.hasMore)
+  const [isLogsPageLoading, setIsLogsPageLoading] = useState(false)
+  const [reportRowsInRangeCount, setReportRowsInRangeCount] = useState<
+    number | null
+  >(null)
+  const [isReportRowsInRangeCountLoading, setIsReportRowsInRangeCountLoading] =
+    useState(false)
   const summaryCacheRef = useRef(
     new Map<string, { data: SummaryStats; fetchedAt: number }>()
   )
@@ -100,6 +176,15 @@ export function CustomerUnitTabClient({
   const energyAnalyticsCacheRef = useRef(
     new Map<string, { data: EnergyAnalytics; fetchedAt: number }>()
   )
+  const logsPageCacheRef = useRef(
+    new Map<number, LogsPageCache>([
+      [
+        0,
+        initialLogsPage,
+      ],
+    ])
+  )
+  const logsPageRequestTokenRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -212,22 +297,34 @@ export function CustomerUnitTabClient({
 
   const effectiveRtuKey = selectedRtuKey || availableRtus[0]?.rtuKey || ""
 
-  const selectedLogRows = useMemo(() => {
-    return unit.logs
-      .map((log) => {
-        const rtu = log.rtus.find((entry) => entry.rtuKey === effectiveRtuKey)
-        if (!rtu) {
-          return null
-        }
+  const selectedLogRows = useMemo(
+    () => mapLogsForRtu(unit.logs, effectiveRtuKey),
+    [effectiveRtuKey, unit.logs]
+  )
 
-        return {
-          id: log.id,
-          deviceTimestamp: log.deviceTimestamp,
-          metrics: rtu.metrics,
-        }
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-  }, [effectiveRtuKey, unit.logs])
+  const pagedSelectedLogRows = useMemo(
+    () => mapLogsForRtu(logsPageRows, effectiveRtuKey),
+    [effectiveRtuKey, logsPageRows]
+  )
+  const latestUnitLogId = unit.logs[0]?.id ?? null
+
+  useEffect(() => {
+    const firstPage = buildInitialLogsPage(unit.logs)
+    const cachedFirstPage = logsPageCacheRef.current.get(0)
+    const hasCachedRows = Boolean(cachedFirstPage && cachedFirstPage.rows.length > 0)
+    const hasIncomingRows = Boolean(firstPage.rows.length > 0)
+    if (hasCachedRows && !hasIncomingRows) {
+      return
+    }
+
+    logsPageRequestTokenRef.current += 1
+    logsPageCacheRef.current.clear()
+    logsPageCacheRef.current.set(0, firstPage)
+    setLogsPageIndex(0)
+    setLogsPageRows(firstPage.rows)
+    setLogsHasMore(firstPage.hasMore)
+    setIsLogsPageLoading(false)
+  }, [effectiveRtuKey, latestUnitLogId, unit.logs, unit.unitId])
 
   const metricColumns = useMemo(() => {
     const map = new Map<string, { key: string; label: string; order: number }>()
@@ -543,104 +640,330 @@ export function CustomerUnitTabClient({
     }
   }, [effectiveRtuKey, energyDailyRange, selectedChartTab, tab, unit.unitId])
 
-  const kwhDelta = useMemo(() => {
-    const values = trendRows
-      .map((row) => row.Kwh)
-      .filter((value): value is number => typeof value === "number")
-    if (values.length < 2) {
-      return null
-    }
-    return Math.max(values[values.length - 1] - values[0], 0)
-  }, [trendRows])
-
   const reportRows = useMemo(() => {
-    if (reportRange === "custom") {
-      if (!customStartDate || !customEndDate) {
-        return trendRows
-      }
-      const start = new Date(customStartDate)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(customEndDate)
-      end.setHours(23, 59, 59, 999)
-
-      return trendRows.filter((row) => {
-        const at = new Date(row.timestamp).getTime()
-        return at >= start.getTime() && at <= end.getTime()
-      })
-    }
-
-    if (reportRange === "24h") {
-      return trendRows.slice(-24)
-    }
-    if (reportRange === "7d") {
-      return trendRows.slice(-7 * 24)
-    }
-    return trendRows.slice(-30 * 24)
-  }, [customEndDate, customStartDate, reportRange, trendRows])
+    return selectReportRows({
+      trendRows,
+      reportType,
+      reportRange,
+      customStartDate,
+      customEndDate,
+      consumptionRange,
+    })
+  }, [
+    consumptionRange,
+    customEndDate,
+    customStartDate,
+    reportRange,
+    reportType,
+    trendRows,
+  ])
 
   const latestSelectedLogTimestamp = selectedLogRows[0]?.deviceTimestamp ?? null
 
-  function exportCsv() {
-    if (reportRows.length === 0) {
-      toast.error("No data available for CSV export")
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadReportRowsInRangeCount() {
+      if (tab !== "reports" || reportType === "consumption") {
+        setIsReportRowsInRangeCountLoading(false)
+        setReportRowsInRangeCount(null)
+        return
+      }
+
+      if (!effectiveRtuKey) {
+        setIsReportRowsInRangeCountLoading(false)
+        setReportRowsInRangeCount(0)
+        return
+      }
+
+      setIsReportRowsInRangeCountLoading(true)
+
+      const params = new URLSearchParams()
+      params.set("rtuKey", effectiveRtuKey)
+      params.set("reportRange", reportRange)
+
+      if (reportRange === "custom") {
+        if (customStartDate) {
+          params.set("startDate", toDateParam(customStartDate))
+        }
+        if (customEndDate) {
+          params.set("endDate", toDateParam(customEndDate))
+        }
+      }
+
+      try {
+        const response = await fetch(
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/reports/count?${params.toString()}`,
+          {
+            cache: "no-store",
+          }
+        )
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = (await response.json()) as { rowCount?: number }
+        if (!cancelled) {
+          setReportRowsInRangeCount(
+            typeof data.rowCount === "number" && Number.isFinite(data.rowCount)
+              ? Math.max(0, Math.floor(data.rowCount))
+              : 0
+          )
+        }
+      } catch {
+        return
+      } finally {
+        if (!cancelled) {
+          setIsReportRowsInRangeCountLoading(false)
+        }
+      }
+    }
+
+    void loadReportRowsInRangeCount()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    customEndDate,
+    customStartDate,
+    effectiveRtuKey,
+    reportRange,
+    reportType,
+    tab,
+    unit.unitId,
+  ])
+
+  function goToPreviousLogsPage() {
+    if (isLogsPageLoading || logsPageIndex === 0) {
       return
     }
 
-    const columns = [
-      "timestamp",
-      "VRY",
-      "VYB",
-      "VBR",
-      "VRN",
-      "VYN",
-      "VBN",
-      "IR",
-      "IY",
-      "IB",
-      "KW-R",
-      "KW-Y",
-      "KW-B",
-      "PF-R",
-      "PF-Y",
-      "PF-B",
-      "Freq",
-      "Kwh",
-      "KvAh",
-      "KvArh",
-    ]
-    const lines = [columns.join(",")]
-
-    for (const row of reportRows) {
-      lines.push(
-        columns
-          .map((column) => {
-            const value = (row as Record<string, unknown>)[column]
-            if (typeof value === "number") {
-              return value.toString()
-            }
-            return `"${String(value ?? "").replaceAll('"', '""')}"`
-          })
-          .join(",")
-      )
+    const previousIndex = logsPageIndex - 1
+    const cached = logsPageCacheRef.current.get(previousIndex)
+    if (!cached) {
+      return
     }
 
-    const blob = new Blob([lines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    })
+    setLogsPageIndex(previousIndex)
+    setLogsPageRows(cached.rows)
+    setLogsHasMore(cached.hasMore)
+  }
+
+  async function goToNextLogsPage() {
+    if (isLogsPageLoading || !logsHasMore) {
+      return
+    }
+
+    const nextIndex = logsPageIndex + 1
+    const cached = logsPageCacheRef.current.get(nextIndex)
+    if (cached) {
+      setLogsPageIndex(nextIndex)
+      setLogsPageRows(cached.rows)
+      setLogsHasMore(cached.hasMore)
+      return
+    }
+
+    const currentPage = logsPageCacheRef.current.get(logsPageIndex)
+    if (!currentPage || !currentPage.hasMore || !currentPage.nextCursor) {
+      setLogsHasMore(false)
+      return
+    }
+
+    const requestToken = logsPageRequestTokenRef.current + 1
+    logsPageRequestTokenRef.current = requestToken
+    setIsLogsPageLoading(true)
+
+    const params = new URLSearchParams()
+    params.set("cursor", currentPage.nextCursor)
+    params.set("limit", String(LOGS_PAGE_SIZE))
+
+    try {
+      const response = await fetch(
+        `/api/customer/ems/${encodeURIComponent(unit.unitId)}/logs?${params.toString()}`,
+        {
+          cache: "no-store",
+        }
+      )
+
+      if (!response.ok) {
+        toast.error("Unable to load more logs")
+        return
+      }
+
+      const data = (await response.json()) as LogsApiResponse
+      const nextPage: LogsPageCache = {
+        rows: data.logs,
+        nextCursor: data.nextCursor,
+        hasMore: data.hasMore,
+      }
+      logsPageCacheRef.current.set(nextIndex, nextPage)
+
+      if (logsPageRequestTokenRef.current !== requestToken) {
+        return
+      }
+
+      setLogsPageIndex(nextIndex)
+      setLogsPageRows(nextPage.rows)
+      setLogsHasMore(nextPage.hasMore)
+    } catch {
+      toast.error("Unable to load more logs")
+    } finally {
+      if (logsPageRequestTokenRef.current === requestToken) {
+        setIsLogsPageLoading(false)
+      }
+    }
+  }
+
+  function buildRawCsvExportUrl(dateRangeLabel: string) {
+    const params = new URLSearchParams()
+    params.set("rtuKey", effectiveRtuKey)
+    params.set("reportRange", reportRange)
+    params.set("dateRangeLabel", dateRangeLabel)
+
+    if (reportRange === "custom") {
+      if (customStartDate) {
+        params.set("startDate", toDateParam(customStartDate))
+      }
+      if (customEndDate) {
+        params.set("endDate", toDateParam(customEndDate))
+      }
+    }
+
+    return `/api/customer/ems/${encodeURIComponent(unit.unitId)}/reports/csv?${params.toString()}`
+  }
+
+  function triggerFileDownload({
+    content,
+    filename,
+    mimeType,
+  }: {
+    content: string
+    filename: string
+    mimeType: string
+  }) {
+    const blob = new Blob([content], { type: mimeType })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement("a")
     anchor.href = url
-    anchor.download = `${unit.unitId}-${effectiveRtuKey}-${reportType}-${reportRange}.csv`
+    anchor.download = filename
     anchor.click()
     URL.revokeObjectURL(url)
   }
 
-  function exportPdf() {
+  function exportReport(format: ReportExportFormat) {
     if (reportRows.length === 0) {
-      toast.error("No data available for PDF export")
+      toast.error("No data available for export")
       return
     }
-    window.print()
+
+    const generatedAt = new Date()
+    const rawReport = buildRawReportModel(reportRows)
+    const analyticalReport = buildAnalyticalReportModel(reportRows)
+    const consumptionReport = buildConsumptionReportModel({
+      rows: reportRows,
+      mode: consumptionRange,
+      unitPrice,
+    })
+    const effectiveDateRangeLabel =
+      reportType === "consumption"
+        ? consumptionRangeLabel(consumptionRange)
+        : reportDateRangeLabel(reportRows)
+
+    if (format === "csv" && reportType === "raw") {
+      if (!effectiveRtuKey) {
+        toast.error("Please select a meter before exporting")
+        return
+      }
+
+      const anchor = document.createElement("a")
+      anchor.href = buildRawCsvExportUrl(effectiveDateRangeLabel)
+      anchor.rel = "noopener"
+      anchor.click()
+      toast.success("Raw CSV export started")
+      return
+    }
+
+    if (format === "csv") {
+      const csv = buildCsvExport({
+        reportType,
+        rawReport,
+        analyticalReport,
+        consumptionReport,
+        unitId: unit.unitId,
+        companyName: user?.companyName ?? "",
+        dateRangeLabel: effectiveDateRangeLabel,
+        unitPrice,
+        consumptionRange,
+        generatedAt,
+      })
+      triggerFileDownload({
+        content: csv.content,
+        filename: csv.filename,
+        mimeType: "text/csv;charset=utf-8;",
+      })
+      toast.success("CSV report downloaded")
+      return
+    }
+
+    const printable = buildPrintableReportHtml({
+      reportType,
+      rawReport,
+      analyticalReport,
+      consumptionReport,
+      unitId: unit.unitId,
+      companyName: user?.companyName ?? "",
+      companyLogoUrl: user?.companyLoginImageUrl ?? "",
+      dateRangeLabel: effectiveDateRangeLabel,
+      unitPrice,
+      generatedAt,
+    })
+
+    import("html2pdf.js")
+      .then((html2pdfModule) => {
+        // html2pdf.js exports the function as default or directly
+        const html2pdf =
+          html2pdfModule.default ||
+          (html2pdfModule as unknown as () => any)
+
+        const tempElement = document.createElement("div")
+        tempElement.innerHTML = printable.html
+
+        // The element needs to be in the DOM for html2canvas to render it properly,
+        // but we can hide it off-screen
+        tempElement.style.position = "absolute"
+        tempElement.style.left = "-9999px"
+        tempElement.style.top = "-9999px"
+        document.body.appendChild(tempElement)
+
+        const opt: any = {
+          margin: 0.5,
+          filename: `EMS_Report_${unit.unitId}_${effectiveDateRangeLabel.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        }
+
+        const promise = html2pdf().set(opt).from(tempElement).save()
+
+        toast.promise(promise, {
+          loading: "Generating PDF...",
+          success: () => {
+            document.body.removeChild(tempElement)
+            return "PDF downloaded successfully"
+          },
+          error: () => {
+            if (document.body.contains(tempElement)) {
+              document.body.removeChild(tempElement)
+            }
+            return "Failed to generate PDF"
+          },
+        })
+      })
+      .catch(() => {
+        toast.error("Failed to load PDF generation library")
+      })
   }
 
   if (tab === "charts") {
@@ -736,17 +1059,20 @@ export function CustomerUnitTabClient({
         reportType={reportType}
         onReportRangeChange={setReportRange}
         onReportTypeChange={setReportType}
-        onExportCsv={exportCsv}
-        onExportPdf={exportPdf}
+        onExport={exportReport}
         reportRows={reportRows}
-        kwhDelta={kwhDelta}
-        frequency={frequency}
         customStartDate={customStartDate}
         customEndDate={customEndDate}
         onCustomStartDateChange={setCustomStartDate}
         onCustomEndDateChange={setCustomEndDate}
         companyName={user?.companyName ?? ""}
         companyLoginImageUrl={user?.companyLoginImageUrl ?? ""}
+        consumptionRange={consumptionRange}
+        onConsumptionRangeChange={setConsumptionRange}
+        unitPrice={unitPrice}
+        onUnitPriceChange={setUnitPrice}
+        reportRowsInRangeCount={reportRowsInRangeCount}
+        isReportRowsInRangeCountLoading={isReportRowsInRangeCountLoading}
       />
     )
   }
@@ -779,7 +1105,15 @@ export function CustomerUnitTabClient({
         availableRtus={availableRtus}
         onRtuChange={setSelectedRtuKey}
         metricColumns={metricColumns}
-        selectedLogRows={selectedLogRows}
+        selectedLogRows={pagedSelectedLogRows}
+        pageIndex={logsPageIndex}
+        pageSize={LOGS_PAGE_SIZE}
+        hasMore={logsHasMore}
+        isPageLoading={isLogsPageLoading}
+        onPreviousPage={goToPreviousLogsPage}
+        onNextPage={() => {
+          void goToNextLogsPage()
+        }}
       />
     </div>
   )

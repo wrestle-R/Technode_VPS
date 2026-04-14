@@ -6,19 +6,36 @@ type LogRow = {
   metrics: MetricValue[]
 }
 
+type EmsLogsTableProps = {
+  effectiveRtuKey: string
+  availableRtus: Array<{ rtuKey: string; nickname: string }>
+  onRtuChange: (nextRtuKey: string) => void
+  metricColumns: Array<{ key: string; label: string; order: number }>
+  selectedLogRows: LogRow[]
+  pageIndex: number
+  pageSize: number
+  hasMore: boolean
+  isPageLoading: boolean
+  onPreviousPage: () => void
+  onNextPage: () => void
+}
+
 export function EmsLogsTable({
   effectiveRtuKey,
   availableRtus,
   onRtuChange,
   metricColumns,
   selectedLogRows,
-}: {
-  effectiveRtuKey: string
-  availableRtus: Array<{ rtuKey: string; nickname: string }>
-  onRtuChange: (nextRtuKey: string) => void
-  metricColumns: Array<{ key: string; label: string; order: number }>
-  selectedLogRows: LogRow[]
-}) {
+  pageIndex,
+  pageSize,
+  hasMore,
+  isPageLoading,
+  onPreviousPage,
+  onNextPage,
+}: EmsLogsTableProps) {
+  const pageFrom = selectedLogRows.length > 0 ? pageIndex * pageSize + 1 : 0
+  const pageTo = pageIndex * pageSize + selectedLogRows.length
+
   return (
     <div className="w-full max-w-full min-w-0 space-y-4">
       <div className="overflow-hidden rounded-2xl border bg-gradient-to-r from-card to-muted/20 p-5 shadow-sm">
@@ -86,6 +103,31 @@ export function EmsLogsTable({
             ) : null}
           </tbody>
         </table>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+          <p>
+            {selectedLogRows.length > 0
+              ? `Showing logs ${pageFrom}-${pageTo} (page ${pageIndex + 1})`
+              : `Page ${pageIndex + 1}`}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onPreviousPage}
+              disabled={pageIndex === 0 || isPageLoading}
+              className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={onNextPage}
+              disabled={!hasMore || isPageLoading}
+              className="h-8 rounded-lg border border-border bg-white px-3 disabled:opacity-50"
+            >
+              {isPageLoading ? "Loading..." : "Next"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
