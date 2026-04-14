@@ -13,7 +13,6 @@ import {
   buildAnalyticalReportModel,
   buildConsumptionReportModel,
   buildCsvExport,
-  buildPrintableReportHtml,
   buildRawReportModel,
   consumptionRangeLabel,
   reportDateRangeLabel,
@@ -852,6 +851,39 @@ export function CustomerUnitTabClient({
     URL.revokeObjectURL(url)
   }
 
+  function buildPdfExportUrl({
+    reportType,
+    reportRange,
+    consumptionRange,
+    unitPrice,
+    dateRangeLabel,
+  }: {
+    reportType: ReportType
+    reportRange: ReportRange
+    consumptionRange: ConsumptionRange
+    unitPrice: number
+    dateRangeLabel: string
+  }) {
+    const params = new URLSearchParams()
+    params.set("rtuKey", effectiveRtuKey)
+    params.set("reportType", reportType)
+    params.set("reportRange", reportRange)
+    params.set("consumptionRange", consumptionRange)
+    params.set("unitPrice", String(unitPrice))
+    params.set("dateRangeLabel", dateRangeLabel)
+
+    if (reportRange === "custom") {
+      if (customStartDate) {
+        params.set("startDate", toDateParam(customStartDate))
+      }
+      if (customEndDate) {
+        params.set("endDate", toDateParam(customEndDate))
+      }
+    }
+
+    return `/api/customer/ems/${encodeURIComponent(unit.unitId)}/reports/pdf?${params.toString()}`
+  }
+
   function exportReport(format: ReportExportFormat) {
     if (reportRows.length === 0) {
       toast.error("No data available for export")
@@ -907,63 +939,22 @@ export function CustomerUnitTabClient({
       return
     }
 
-    const printable = buildPrintableReportHtml({
+    if (!effectiveRtuKey) {
+      toast.error("Please select a meter before exporting")
+      return
+    }
+
+    const anchor = document.createElement("a")
+    anchor.href = buildPdfExportUrl({
       reportType,
-      rawReport,
-      analyticalReport,
-      consumptionReport,
-      unitId: unit.unitId,
-      companyName: user?.companyName ?? "",
-      companyLogoUrl: user?.companyLoginImageUrl ?? "",
-      dateRangeLabel: effectiveDateRangeLabel,
+      reportRange,
+      consumptionRange,
       unitPrice,
-      generatedAt,
+      dateRangeLabel: effectiveDateRangeLabel,
     })
-
-    import("html2pdf.js")
-      .then((html2pdfModule) => {
-        // html2pdf.js exports the function as default or directly
-        const html2pdf =
-          html2pdfModule.default ||
-          (html2pdfModule as unknown as () => any)
-
-        const tempElement = document.createElement("div")
-        tempElement.innerHTML = printable.html
-
-        // The element needs to be in the DOM for html2canvas to render it properly,
-        // but we can hide it off-screen
-        tempElement.style.position = "absolute"
-        tempElement.style.left = "-9999px"
-        tempElement.style.top = "-9999px"
-        document.body.appendChild(tempElement)
-
-        const opt: any = {
-          margin: 0.5,
-          filename: `EMS_Report_${unit.unitId}_${effectiveDateRangeLabel.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-        }
-
-        const promise = html2pdf().set(opt).from(tempElement).save()
-
-        toast.promise(promise, {
-          loading: "Generating PDF...",
-          success: () => {
-            document.body.removeChild(tempElement)
-            return "PDF downloaded successfully"
-          },
-          error: () => {
-            if (document.body.contains(tempElement)) {
-              document.body.removeChild(tempElement)
-            }
-            return "Failed to generate PDF"
-          },
-        })
-      })
-      .catch(() => {
-        toast.error("Failed to load PDF generation library")
-      })
+    anchor.rel = "noopener"
+    anchor.click()
+    toast.success("PDF export started")
   }
 
   if (tab === "charts") {
