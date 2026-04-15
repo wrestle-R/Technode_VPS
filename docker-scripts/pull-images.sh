@@ -7,7 +7,10 @@ source "$SCRIPT_DIR/common.sh"
 
 require_docker
 
-log "Pulling base images"
+log "Pulling configured images"
+docker pull "$APP_IMAGE"
+docker pull "$WORKER_IMAGE"
+docker pull "$POSTGRES_IMAGE"
 docker pull "$MQTT_IMAGE"
 
 log "Pull complete"
