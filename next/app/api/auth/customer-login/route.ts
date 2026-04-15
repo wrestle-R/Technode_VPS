@@ -4,7 +4,7 @@ import { resolveRequestCompany } from "@/lib/company"
 import { createCustomerSessionValue } from "@/lib/auth"
 import { corsPreflight, withCors } from "@/lib/cors"
 import { prisma } from "@/lib/prisma"
-import { CUSTOMER_SESSION_COOKIE } from "@/lib/session-cookies"
+import { CUSTOMER_SESSION_COOKIE, shouldUseSecureCookies } from "@/lib/session-cookies"
 
 type LoginBody = {
   email?: string
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   }), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(request),
     path: "/",
     maxAge: 60 * 60 * 12,
   })

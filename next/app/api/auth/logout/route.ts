@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { corsPreflight, withCors } from "@/lib/cors"
-import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/session-cookies"
+import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE, shouldUseSecureCookies } from "@/lib/session-cookies"
 
 export async function OPTIONS(request: Request) {
   return corsPreflight(request)
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   response.cookies.set(CUSTOMER_SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(request),
     path: "/",
     maxAge: 0,
   })
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   response.cookies.set(ADMIN_SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(request),
     path: "/",
     maxAge: 0,
   })
