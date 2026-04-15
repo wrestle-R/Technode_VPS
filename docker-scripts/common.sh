@@ -128,9 +128,17 @@ ensure_local_image() {
   local image="$1"
   if ! docker image inspect "$image" >/dev/null 2>&1; then
     error "Image not found locally: $image"
-    error "Pull it first with ./docker-scripts/pull-images.sh or build it via update scripts."
+    error "Build it locally, load it manually, or set the image name in docker-scripts/.env to one that already exists on this machine."
     exit 1
   fi
+}
+
+ensure_mqtt_available() {
+  if container_exists "$MQTT_CONTAINER"; then
+    return 0
+  fi
+
+  ensure_local_image "$MQTT_IMAGE"
 }
 
 resolve_build_prisma_database_url() {
@@ -213,6 +221,8 @@ run_mqtt() {
     ensure_container_on_network "$MQTT_CONTAINER"
     return 0
   fi
+
+  ensure_local_image "$MQTT_IMAGE"
 
   log "Starting mqtt container: $MQTT_CONTAINER"
   local port_args=()

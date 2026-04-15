@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/../common.sh"
 
 require_docker
 
@@ -19,8 +19,10 @@ build_all_for_publish() {
 
 build_all_for_publish
 
-echo "[docker-scripts] Pulling broker base image for publish"
-docker pull "$MQTT_IMAGE" >/dev/null
+if ! docker image inspect "$MQTT_IMAGE" >/dev/null 2>&1; then
+  log "Pulling MQTT image for publish: $MQTT_IMAGE"
+  docker pull "$MQTT_IMAGE" >/dev/null
+fi
 
 app_remote="$(remote_image_ref "$namespace" technode-app "$tag")"
 worker_remote="$(remote_image_ref "$namespace" technode-worker "$tag")"

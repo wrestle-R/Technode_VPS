@@ -44,8 +44,7 @@ case "$service" in
     wait_for_postgres_ready 90
     ;;
   mqtt)
-    docker pull "$MQTT_IMAGE"
-    ensure_local_image "$MQTT_IMAGE"
+    ensure_mqtt_available
     run_mqtt
     ensure_container_on_network "$MQTT_CONTAINER"
     ;;

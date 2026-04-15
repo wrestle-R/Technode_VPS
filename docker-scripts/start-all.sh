@@ -9,7 +9,7 @@ require_docker
 ensure_local_image "$APP_IMAGE"
 ensure_local_image "$WORKER_IMAGE"
 ensure_local_image "$POSTGRES_IMAGE"
-ensure_local_image "$MQTT_IMAGE"
+ensure_mqtt_available
 ensure_network
 ensure_volume
 
