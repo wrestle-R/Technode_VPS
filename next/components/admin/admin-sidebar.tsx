@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Home, Building2, Users, LogOut, ChevronRight, Gauge } from "lucide-react";
+import { Home, Building2, Users, LogOut, ChevronRight, Gauge, BookText } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -81,6 +81,17 @@ const navGroups: NavGroup[] = [
           {
             title: "Create Customer",
             href: "/admin/customers/create",
+          },
+        ],
+      },
+      {
+        title: "Docs",
+        href: "/admin/docs",
+        icon: BookText,
+        subItems: [
+          {
+            title: "EMS",
+            href: "/admin/docs/ems",
           },
         ],
       },

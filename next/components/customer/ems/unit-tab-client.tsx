@@ -7,7 +7,6 @@ import {
   average,
   buildTrendRows,
   metricValueFromLatest,
-  statusClasses,
 } from "@/components/customer/ems/helpers"
 import {
   buildAnalyticalReportModel,
@@ -1043,23 +1042,10 @@ export function CustomerUnitTabClient({
   return (
     <div className="w-full max-w-full min-w-0 space-y-6">
       <div className="overflow-hidden rounded-2xl border bg-gradient-to-r from-card to-muted/25 p-4 shadow-sm">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-start gap-3">
           <h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight break-all">
             {unit.unitId}
           </h1>
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
-            <span
-              className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(unit.status)}`}
-            >
-              {unit.status}
-            </span>
-            <p className="text-sm break-words text-muted-foreground">
-              Last seen:{" "}
-              {unit.lastSeenAt
-                ? new Date(unit.lastSeenAt).toLocaleString()
-                : "Never"}
-            </p>
-          </div>
         </div>
       </div>
 

@@ -23,7 +23,7 @@ const DEFAULT_KEYS = [
 ] as const
 
 export const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL ?? "mqtt://127.0.0.1:1883"
-export const MQTT_TOPIC_PATTERNS = ["+/ems", "/+/ems"] as const
+export const MQTT_TOPIC_PATTERNS = ["+/status", "/+/status", "+/data", "/+/data"] as const
 
 export function buildDefaultFieldTemplate(): EmsFieldTemplateEntry[] {
   return DEFAULT_KEYS.map((key, index) => ({

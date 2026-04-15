@@ -6,7 +6,7 @@ import random
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
@@ -14,7 +14,8 @@ import paho.mqtt.client as mqtt
 BROKER_HOST = os.getenv("EMS_TEST_BROKER_HOST", "localhost")
 BROKER_PORT = int(os.getenv("EMS_TEST_BROKER_PORT", "1883"))
 UNIT_ID = os.getenv("EMS_TEST_UNIT_ID", "TN-862360078027385")
-TOPIC = os.getenv("EMS_TEST_TOPIC", f"/{UNIT_ID}/ems")
+STATUS_TOPIC = os.getenv("EMS_TEST_STATUS_TOPIC", f"/{UNIT_ID}/status")
+DATA_TOPIC = os.getenv("EMS_TEST_DATA_TOPIC", f"/{UNIT_ID}/data")
 PUBLISH_INTERVAL_SECONDS = int(os.getenv("EMS_TEST_INTERVAL_SECONDS", "10"))
 MAX_MESSAGES = int(os.getenv("EMS_TEST_MAX_MESSAGES", "0"))
 SLAVE_COUNT = 2
@@ -62,7 +63,6 @@ def build_payload() -> dict:
 
     return {
         "ID": UNIT_ID,
-        "Status": "Online" if random.random() > 0.15 else "Offline",
         "Signal": random.randint(40, 80),
         "Location": "INDIA",
         "RTU": rtus,
@@ -71,14 +71,51 @@ def build_payload() -> dict:
     }
 
 
+def build_status_payload(state: str, reason: str | None = None) -> dict:
+    payload = {
+        "ID": UNIT_ID,
+        "state": state,
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    if reason:
+        payload["reason"] = reason
+    return payload
+
+
 def main() -> int:
     client_id = f"technode-test-{random.randint(1000, 9999)}"
-    client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
+    callback_api_version = getattr(
+        getattr(mqtt, "CallbackAPIVersion", object), "VERSION2", None
+    )
+    client_kwargs = {
+        "client_id": client_id,
+        "protocol": mqtt.MQTTv311,
+    }
+    if callback_api_version is not None:
+        client_kwargs["callback_api_version"] = callback_api_version
+
+    client = mqtt.Client(**client_kwargs)
+    client.will_set(
+        STATUS_TOPIC,
+        payload=json.dumps(build_status_payload("offline", "lwt")),
+        qos=1,
+        retain=True,
+    )
 
     def handle_connect(_client, _userdata, _flags, reason_code, _properties=None):
         if reason_code == 0:
             print(f"[test] connected to {BROKER_HOST}:{BROKER_PORT} as {client_id}")
-            print(f"[test] publishing to {TOPIC} every {PUBLISH_INTERVAL_SECONDS}s with {SLAVE_COUNT} slaves")
+            status_result = client.publish(
+                STATUS_TOPIC,
+                json.dumps(build_status_payload("online", "connect")),
+                qos=1,
+                retain=True,
+            )
+            if status_result.rc != mqtt.MQTT_ERR_SUCCESS:
+                print(f"[test] initial status publish failed: {status_result.rc}", file=sys.stderr)
+            print(
+                f"[test] publishing status to {STATUS_TOPIC} and data to {DATA_TOPIC} every {PUBLISH_INTERVAL_SECONDS}s"
+            )
         else:
             print(f"[test] mqtt connection failed: {reason_code}", file=sys.stderr)
 
@@ -90,6 +127,13 @@ def main() -> int:
 
     def shutdown(_signum=None, _frame=None):
         try:
+            offline_result = client.publish(
+                STATUS_TOPIC,
+                json.dumps(build_status_payload("offline", "shutdown")),
+                qos=1,
+                retain=True,
+            )
+            offline_result.wait_for_publish()
             client.loop_stop()
             client.disconnect()
         finally:
@@ -104,12 +148,23 @@ def main() -> int:
     published_count = 0
 
     while True:
+        status_payload = build_status_payload("online", "heartbeat")
+        status_result = client.publish(
+            STATUS_TOPIC,
+            json.dumps(status_payload),
+            qos=1,
+            retain=True,
+        )
+        status_result.wait_for_publish()
+
         payload = build_payload()
-        result = client.publish(TOPIC, json.dumps(payload))
+        result = client.publish(DATA_TOPIC, json.dumps(payload), qos=1, retain=False)
         result.wait_for_publish()
 
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            print(f"[test] published {payload['ID']} with {len(payload['RTU'])} slaves at {payload['TS']}")
+            print(
+                f"[test] published {payload['ID']} with {len(payload['RTU'])} slaves at {payload['TS']}"
+            )
         else:
             print(f"[test] publish failed: {result.rc}", file=sys.stderr)
 

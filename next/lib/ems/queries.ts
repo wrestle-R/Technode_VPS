@@ -13,7 +13,9 @@ function asNumber(value: { toString(): string } | null | undefined) {
 }
 
 const UNIT_DETAIL_LOG_LIMIT = 500
-const ONLINE_TIMEOUT_MS = 1 * 60 * 1000
+const UNIT_LIST_STATUS_LOOKBACK = 20
+const DATA_FALLBACK_TIMEOUT_MS = 2 * 60 * 1000
+const STATUS_FRESH_TIMEOUT_MS = 2 * 60 * 1000
 
 function readScalingFactor(unit: Record<string, unknown>) {
   const raw =
@@ -26,32 +28,85 @@ function readScalingFactor(unit: Record<string, unknown>) {
   return Number.isFinite(raw) ? raw : 1
 }
 
-function inferStatus(rawPayload: unknown, lastSeenAt: Date | null) {
-  if (!lastSeenAt) {
-    return "Unknown"
+function getPayloadStatus(rawPayload: unknown) {
+  if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
+    return null
   }
 
-  const ageMs = Date.now() - lastSeenAt.getTime()
-  if (ageMs > ONLINE_TIMEOUT_MS) {
+  const payload = rawPayload as { state?: unknown; Status?: unknown }
+  const source = typeof payload.state === "string" ? payload.state : payload.Status
+  if (typeof source !== "string") {
+    return null
+  }
+
+  const normalized = source.trim().toLowerCase()
+  if (normalized === "online" || normalized === "offline") {
+    return normalized
+  }
+
+  return null
+}
+
+function isDataLog(rawRtuArray: unknown) {
+  return Array.isArray(rawRtuArray) && rawRtuArray.length > 0
+}
+
+function isFresh(timestamp: Date | null | undefined, timeoutMs: number) {
+  if (!timestamp) {
+    return false
+  }
+
+  return Date.now() - timestamp.getTime() <= timeoutMs
+}
+
+function findLatestStatusLog<T extends { device_timestamp: Date; raw_unit_payload: unknown }>(logs: T[]) {
+  return logs.find((log) => getPayloadStatus(log.raw_unit_payload) !== null) ?? null
+}
+
+function findLatestDataLog<T extends { device_timestamp: Date; raw_rtu_array: unknown }>(logs: T[]) {
+  return logs.find((log) => isDataLog(log.raw_rtu_array)) ?? null
+}
+
+function inferUnitStatus({
+  latestStatusLog,
+  latestDataLog,
+}: {
+  latestStatusLog: { device_timestamp: Date; raw_unit_payload: unknown } | null
+  latestDataLog: { device_timestamp: Date } | null
+}) {
+  const statusValue = latestStatusLog ? getPayloadStatus(latestStatusLog.raw_unit_payload) : null
+  const statusFresh = latestStatusLog
+    ? isFresh(latestStatusLog.device_timestamp, STATUS_FRESH_TIMEOUT_MS)
+    : false
+  const dataFresh = latestDataLog
+    ? isFresh(latestDataLog.device_timestamp, DATA_FALLBACK_TIMEOUT_MS)
+    : false
+
+  if (statusFresh && statusValue === "offline") {
     return "Offline"
   }
 
-  const payloadStatus =
-    rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload)
-      ? (rawPayload as { Status?: unknown }).Status
-      : null
-
-  if (typeof payloadStatus === "string") {
-    const normalized = payloadStatus.trim().toLowerCase()
-    if (normalized === "offline") {
-      return "Offline"
-    }
-    if (normalized === "online") {
-      return "Online"
-    }
+  if (statusFresh && statusValue === "online") {
+    return "Online"
   }
 
-  return "Online"
+  if (dataFresh) {
+    return "Online"
+  }
+
+  return "Offline"
+}
+
+function inferLogStatus(rawPayload: unknown) {
+  const status = getPayloadStatus(rawPayload)
+  if (status === "online") {
+    return "Online"
+  }
+  if (status === "offline") {
+    return "Offline"
+  }
+
+  return "Unknown"
 }
 
 function getFieldTemplateForRtu({
@@ -420,10 +475,11 @@ function formatUnit(unit: UnitWithLogs) {
   const scalingFactor = readScalingFactor(
     unit as unknown as Record<string, unknown>
   )
-  const latestLog = unit.logs[0] ?? null
-  const mappedRtus = latestLog
+  const latestStatusLog = findLatestStatusLog(unit.logs)
+  const latestDataLog = findLatestDataLog(unit.logs)
+  const mappedRtus = latestDataLog
     ? formatMappedArray(
-        latestLog.raw_rtu_array,
+        latestDataLog.raw_rtu_array,
         unitTemplate,
         overrides,
         scalingFactor
@@ -442,17 +498,20 @@ function formatUnit(unit: UnitWithLogs) {
     latitude: asNumber(unit.latitude),
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
-    lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
+    lastSeenAt: latestDataLog?.device_timestamp.toISOString() ?? unit.last_seen_at?.toISOString() ?? null,
     topicPath: unit.topic_path,
-    status: inferStatus(latestLog?.raw_unit_payload, unit.last_seen_at ?? null),
+    status: inferUnitStatus({
+      latestStatusLog,
+      latestDataLog,
+    }),
     unitFieldTemplate: unitTemplate,
     rtuOverrides: overrides,
     scalingFactor,
-    latestLog: latestLog
+    latestLog: latestDataLog
       ? {
-          id: latestLog.id.toString(),
-          deviceTimestamp: latestLog.device_timestamp.toISOString(),
-          rawUnitPayload: latestLog.raw_unit_payload,
+          id: latestDataLog.id.toString(),
+          deviceTimestamp: latestDataLog.device_timestamp.toISOString(),
+          rawUnitPayload: latestDataLog.raw_unit_payload,
           mappedRtuArray: mappedRtus,
         }
       : null,
@@ -476,7 +535,7 @@ export async function getAdminEmsUnits() {
       },
       logs: {
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: 1,
+        take: UNIT_LIST_STATUS_LOOKBACK,
       },
     },
   })
@@ -522,7 +581,7 @@ export async function getAdminEmsUnitsFiltered({
       },
       logs: {
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: 1,
+        take: UNIT_LIST_STATUS_LOOKBACK,
       },
     },
   })
@@ -644,7 +703,7 @@ export async function getAdminEmsUnit(unitId: string) {
     logs: unit.logs.map((log: (typeof unit.logs)[number]) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
-      status: inferStatus(log.raw_unit_payload, log.device_timestamp),
+      status: inferLogStatus(log.raw_unit_payload),
       rtus: formatMappedArray(
         log.raw_rtu_array,
         unitTemplate,
@@ -663,7 +722,7 @@ export async function getCustomerEmsUnits(customerId: number) {
     include: {
       logs: {
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: 1,
+        take: UNIT_LIST_STATUS_LOOKBACK,
       },
     },
   })
@@ -674,10 +733,11 @@ export async function getCustomerEmsUnits(customerId: number) {
     const scalingFactor = readScalingFactor(
       unit as unknown as Record<string, unknown>
     )
-    const latestLog = unit.logs[0] ?? null
-    const mappedRtus = latestLog
+    const latestStatusLog = findLatestStatusLog(unit.logs)
+    const latestDataLog = findLatestDataLog(unit.logs)
+    const mappedRtus = latestDataLog
       ? formatMappedArray(
-          latestLog.raw_rtu_array,
+          latestDataLog.raw_rtu_array,
           unitTemplate,
           overrides,
           scalingFactor
@@ -687,15 +747,15 @@ export async function getCustomerEmsUnits(customerId: number) {
     return {
       id: unit.id.toString(),
       unitId: unit.unit_id,
-      status: inferStatus(
-        latestLog?.raw_unit_payload,
-        unit.last_seen_at ?? null
-      ),
+      status: inferUnitStatus({ latestStatusLog, latestDataLog }),
       locationLabel: unit.location_label,
       latitude: asNumber(unit.latitude),
       longitude: asNumber(unit.longitude),
       deviceType: unit.device_type,
-      lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
+      lastSeenAt:
+        latestDataLog?.device_timestamp.toISOString() ??
+        unit.last_seen_at?.toISOString() ??
+        null,
       slaveCount: mappedRtus.length,
     }
   })
@@ -730,29 +790,41 @@ export async function getCustomerEmsUnitDetail({
   const scalingFactor = readScalingFactor(
     unit as unknown as Record<string, unknown>
   )
-  const latestLog = unit.logs[0] ?? null
+  const latestStatusLog = findLatestStatusLog(unit.logs)
+  const latestDataLog = findLatestDataLog(unit.logs)
+  const sortedDataLogs = unit.logs
+    .filter((log) => isDataLog(log.raw_rtu_array))
+    .sort((a, b) => {
+      if (a.id === b.id) {
+        return 0
+      }
+      return a.id > b.id ? -1 : 1
+    })
 
   return {
     id: unit.id.toString(),
     unitId: unit.unit_id,
-    status: inferStatus(latestLog?.raw_unit_payload, unit.last_seen_at ?? null),
+    status: inferUnitStatus({ latestStatusLog, latestDataLog }),
     locationLabel: unit.location_label,
     latitude: asNumber(unit.latitude),
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
-    lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
-    latestRtus: latestLog
+    lastSeenAt:
+      latestDataLog?.device_timestamp.toISOString() ??
+      unit.last_seen_at?.toISOString() ??
+      null,
+    latestRtus: latestDataLog
       ? formatMappedArray(
-          latestLog.raw_rtu_array,
+          latestDataLog.raw_rtu_array,
           unitTemplate,
           overrides,
           scalingFactor
         )
       : [],
-    logs: unit.logs.map((log: (typeof unit.logs)[number]) => ({
+    logs: sortedDataLogs.map((log: (typeof unit.logs)[number]) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
-      status: inferStatus(log.raw_unit_payload, log.device_timestamp),
+      status: inferLogStatus(log.raw_unit_payload),
       rtus: formatMappedArray(
         log.raw_rtu_array,
         unitTemplate,
@@ -1330,27 +1402,57 @@ export async function getCustomerEmsLogsPage({
     unit as unknown as Record<string, unknown>
   )
 
-  const rows = await prisma.emsLog.findMany({
-    where: {
-      ems_unit_id: unit.id,
-      ...(cursorId ? { id: { lt: cursorId } } : {}),
-    },
-    orderBy: [{ id: "desc" }],
-    take: normalizedLimit + 1,
-    select: {
-      id: true,
-      device_timestamp: true,
-      raw_unit_payload: true,
-      raw_rtu_array: true,
-    },
-  })
+  const targetCount = normalizedLimit + 1
+  const batchSize = Math.min(Math.max(normalizedLimit * 3, 100), 500)
+  const dataRows: Array<{
+    id: bigint
+    device_timestamp: Date
+    raw_unit_payload: Prisma.JsonValue
+    raw_rtu_array: Prisma.JsonValue
+  }> = []
+  let scanCursor = cursorId
 
-  const hasMore = rows.length > normalizedLimit
-  const pageRows = hasMore ? rows.slice(0, normalizedLimit) : rows
+  while (dataRows.length < targetCount) {
+    const rows = await prisma.emsLog.findMany({
+      where: {
+        ems_unit_id: unit.id,
+        ...(scanCursor ? { id: { lt: scanCursor } } : {}),
+      },
+      orderBy: [{ id: "desc" }],
+      take: batchSize,
+      select: {
+        id: true,
+        device_timestamp: true,
+        raw_unit_payload: true,
+        raw_rtu_array: true,
+      },
+    })
+
+    if (rows.length === 0) {
+      break
+    }
+
+    for (const row of rows) {
+      if (isDataLog(row.raw_rtu_array)) {
+        dataRows.push(row)
+        if (dataRows.length >= targetCount) {
+          break
+        }
+      }
+    }
+
+    scanCursor = rows[rows.length - 1]?.id ?? null
+    if (rows.length < batchSize || scanCursor == null) {
+      break
+    }
+  }
+
+  const hasMore = dataRows.length > normalizedLimit
+  const pageRows = hasMore ? dataRows.slice(0, normalizedLimit) : dataRows
   const logs = pageRows.map((log) => ({
     id: log.id.toString(),
     deviceTimestamp: log.device_timestamp.toISOString(),
-    status: inferStatus(log.raw_unit_payload, log.device_timestamp),
+    status: inferLogStatus(log.raw_unit_payload),
     rtus: formatMappedArray(
       log.raw_rtu_array,
       unitTemplate,

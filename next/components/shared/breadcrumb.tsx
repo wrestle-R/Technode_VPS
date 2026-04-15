@@ -33,6 +33,8 @@ export function AppBreadcrumb() {
       "/admin/customers/create",
       "/admin/devices",
       "/admin/devices/ems",
+      "/admin/docs",
+      "/admin/docs/ems",
     ]);
 
     if (staticRoutes.has(path)) return true;

@@ -1,42 +1,21 @@
 import { DashboardMap, type DeviceMapData } from "@/components/admin/dashboard/dashboard-map"
-import { prisma } from "@/lib/prisma"
+import { getAdminEmsUnits } from "@/lib/ems/queries"
 
 async function getDeviceData(): Promise<DeviceMapData[]> {
-  const units = await prisma.emsUnit.findMany({
-    include: {
-      customer: {
-        include: {
-          company: true,
-        },
-      },
-    },
-  })
+  const units = await getAdminEmsUnits()
 
-  const now = new Date()
-  const ONLINE_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
-
-  return units.map((u) => {
-    let status: "online" | "offline" = "offline"
-    if (u.last_seen_at) {
-      const diff = now.getTime() - new Date(u.last_seen_at).getTime()
-      if (diff <= ONLINE_THRESHOLD_MS) {
-        status = "online"
-      }
-    }
-
-    return {
-      id: u.id.toString(),
-      unit_id: u.unit_id,
-      latitude: u.latitude ? Number(u.latitude) : null,
-      longitude: u.longitude ? Number(u.longitude) : null,
-      device_type: u.device_type,
-      last_seen_at: u.last_seen_at,
-      status,
-      customerName: u.customer ? (u.customer.customer_representative || u.customer.email) : null,
-      companyName: u.customer?.company ? u.customer.company.name : null,
-      location_label: u.location_label,
-    }
-  })
+  return units.map((unit) => ({
+    id: unit.id,
+    unit_id: unit.unitId,
+    latitude: unit.latitude,
+    longitude: unit.longitude,
+    device_type: unit.deviceType,
+    last_seen_at: unit.lastSeenAt ? new Date(unit.lastSeenAt) : null,
+    status: unit.status.toLowerCase() === "online" ? "online" : "offline",
+    customerName: unit.customerName,
+    companyName: null,
+    location_label: unit.locationLabel,
+  }))
 }
 
 export const revalidate = 30

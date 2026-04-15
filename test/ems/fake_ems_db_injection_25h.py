@@ -18,7 +18,7 @@ RECORDS_PER_HOUR = int(os.getenv("EMS_INJECT_RECORDS_PER_HOUR", "30"))
 SLAVE_COUNT = int(os.getenv("EMS_INJECT_SLAVE_COUNT", "2"))
 LOCATION = os.getenv("EMS_INJECT_LOCATION", "INDIA")
 DEVICE_TYPE = os.getenv("EMS_INJECT_DEVICE_TYPE", "4G IOT GATEWAY")
-TOPIC = os.getenv("EMS_INJECT_TOPIC", f"/{UNIT_ID}/ems")
+TOPIC = os.getenv("EMS_INJECT_TOPIC", f"/{UNIT_ID}/data")
 
 DEFAULT_KEYS = [
     "VRN",
@@ -226,7 +226,11 @@ def main() -> int:
                     json.dumps({}),
                 ),
             )
-            unit_db_id = cur.fetchone()[0]
+            row = cur.fetchone()
+            if row is None:
+                print("[inject] failed to upsert EMS unit", file=sys.stderr)
+                return 1
+            unit_db_id = row[0]
 
             rows = []
             for index in range(total_records):
@@ -237,7 +241,6 @@ def main() -> int:
                 raw_rtu_array = build_rtus()
                 raw_unit_payload = {
                     "ID": UNIT_ID,
-                    "Status": "Online" if random.random() > 0.03 else "Offline",
                     "Signal": random.randint(45, 85),
                     "Location": LOCATION,
                     "RTU": raw_rtu_array,

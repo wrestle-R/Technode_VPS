@@ -32,6 +32,15 @@ export type EmsPayload = {
   DT?: string
 }
 
+export type EmsStatusPayload = {
+  ID?: string
+  state?: string
+  Status?: string
+  reason?: string
+  ts?: string
+  TS?: string
+}
+
 export type MappedRtuEntry = {
   id: number | null
   slave: string | null

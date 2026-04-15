@@ -1,7 +1,13 @@
 import mqtt from "mqtt"
 
 import { MQTT_BROKER_URL, MQTT_TOPIC_PATTERNS } from "@/lib/ems/config"
-import { ingestEmsPayload, parseIncomingPayload } from "@/lib/ems/service"
+import {
+  ingestEmsPayload,
+  ingestEmsStatusPayload,
+  parseDataPayload,
+  parseIncomingPayload,
+  parseTopicMessageType,
+} from "@/lib/ems/service"
 
 const clientId = `technode-ems-worker-${Math.random().toString(16).slice(2, 10)}`
 
@@ -24,9 +30,23 @@ client.on("connect", () => {
 
 client.on("message", async (topic, message) => {
   try {
-    const payload = parseIncomingPayload(message.toString("utf-8"))
-    const result = await ingestEmsPayload({ topic, payload })
-    console.log(`[ems:mqtt] stored ${result.unitId} with ${result.slaveCount} slaves`)
+    const rawPayload = parseIncomingPayload(message.toString("utf-8"))
+    const messageType = parseTopicMessageType(topic)
+
+    if (messageType === "status") {
+      const result = await ingestEmsStatusPayload({ topic, payload: rawPayload })
+      console.log(`[ems:mqtt] status ${result.unitId} -> ${result.state}`)
+      return
+    }
+
+    if (messageType === "data") {
+      const payload = parseDataPayload(rawPayload)
+      const result = await ingestEmsPayload({ topic, payload })
+      console.log(`[ems:mqtt] stored ${result.unitId} with ${result.slaveCount} slaves`)
+      return
+    }
+
+    console.warn(`[ems:mqtt] ignored topic ${topic}`)
   } catch (error) {
     console.error("[ems:mqtt] failed to process message", error)
   }
