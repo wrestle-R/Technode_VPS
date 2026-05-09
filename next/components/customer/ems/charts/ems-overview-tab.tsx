@@ -75,8 +75,9 @@ function MetricGauge({
   const radius = 56
   const center = 90
   const angleInRadian = (Math.PI / 180) * angle
-  const needleX = center + radius * Math.cos(angleInRadian)
-  const needleY = center - radius * Math.sin(angleInRadian)
+  // Keep SSR/CSR output deterministic to avoid hydration attr mismatches.
+  const needleX = Number((center + radius * Math.cos(angleInRadian)).toFixed(6))
+  const needleY = Number((center - radius * Math.sin(angleInRadian)).toFixed(6))
 
   return (
     <div className="rounded-xl border border-border/70 bg-muted/15 p-3">

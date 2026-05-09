@@ -16,7 +16,6 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 import { useUser } from "@/contexts/user-context"
@@ -57,6 +56,7 @@ export function CustomerSidebar({
   const { user, clearUser } = useUser()
   const { state } = useSidebar()
   const { units, isUnitsLoading: devicesLoading } = useCustomerEms()
+  const isCollapsed = state === "collapsed"
 
   const formatUnitId = (value: string) => {
     if (value.length <= 18) {
@@ -155,6 +155,25 @@ export function CustomerSidebar({
                 <div className="px-3 py-4 text-center text-xs text-sky-100/50">
                   No devices assigned
                 </div>
+              ) : isCollapsed ? (
+                units.map((unit) => {
+                  const DeviceIcon = getTypeIcon(unit.deviceType)
+                  const isUnitActive = pathname.includes(`/ems/${unit.unitId}`)
+
+                  return (
+                    <SidebarMenuItem key={unit.unitId}>
+                      <SidebarMenuButton
+                        isActive={isUnitActive}
+                        tooltip={unit.unitId}
+                        onClick={() => router.push(chartHrefForUnit(unit.unitId))}
+                        className="cursor-pointer"
+                      >
+                        <DeviceIcon className="h-4 w-4 shrink-0" />
+                        <span>{formatUnitId(unit.unitId)}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })
               ) : (
                 units.map((unit) => {
                   const DeviceIcon = getTypeIcon(unit.deviceType)
@@ -206,25 +225,22 @@ export function CustomerSidebar({
                             )}
                           </SidebarMenuButton>
 
-                          <CollapsibleTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sky-100/70 transition hover:bg-white/12 hover:text-white"
-                              aria-label={`Toggle ${unit.unitId} menu`}
-                            >
-                              <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
-                            </button>
-                          </CollapsibleTrigger>
+                          {state === "expanded" && (
+                            <CollapsibleTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sky-100/70 transition hover:bg-white/12 hover:text-white"
+                                aria-label={`Toggle ${unit.unitId} menu`}
+                              >
+                                <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
+                              </button>
+                            </CollapsibleTrigger>
+                          )}
                         </div>
 
-                        <CollapsibleContent>
-                          <AnimatePresence>
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
+                        {state === "expanded" && (
+                          <CollapsibleContent>
+                            <div>
                               <SidebarMenuSub className="border-l-white/15">
                                 <SidebarMenuSubItem>
                                   <SidebarMenuSubButton
@@ -290,9 +306,9 @@ export function CustomerSidebar({
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
                               </SidebarMenuSub>
-                            </motion.div>
-                          </AnimatePresence>
-                        </CollapsibleContent>
+                            </div>
+                          </CollapsibleContent>
+                        )}
                       </SidebarMenuItem>
                     </Collapsible>
                   )
@@ -313,12 +329,18 @@ export function CustomerSidebar({
               onClick={() => router.push("/profile")}
               className={cn(
                 "h-auto w-full py-2.5",
+                state === "collapsed" && "h-8 justify-center px-0 py-0",
                 isActive("/profile")
                   ? "border-l-4 border-primary bg-primary/10"
                   : "hover:bg-white/8"
               )}
             >
-              <div className="flex w-full items-center gap-3">
+              <div
+                className={cn(
+                  "flex w-full items-center gap-3",
+                  state === "collapsed" && "w-auto justify-center"
+                )}
+              >
                 <div
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary",
