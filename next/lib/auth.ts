@@ -27,14 +27,24 @@ export async function getCustomerSessionFromCookies() {
     const headerStore = await headers()
     const requestSlug = getCompanySlugFromHostname(getRequestHostname(headerStore))
     const decoded = JSON.parse(Buffer.from(raw, "base64url").toString("utf-8")) as CustomerSession
+    const loginImageUrl =
+      typeof decoded.companyLoginImageUrl === "string" && decoded.companyLoginImageUrl
+        ? decoded.companyLoginImageUrl
+        : "/logo.png"
+    const sidebarImageUrl =
+      typeof decoded.companySidebarImageUrl === "string" && decoded.companySidebarImageUrl
+        ? decoded.companySidebarImageUrl
+        : "/logo.png"
+    const browserIconUrl =
+      typeof decoded.companyBrowserIconUrl === "string" && decoded.companyBrowserIconUrl
+        ? decoded.companyBrowserIconUrl
+        : "/icon.png"
+
     if (
       !decoded?.email ||
       typeof decoded.customerId !== "number" ||
       typeof decoded.companyId !== "number" ||
-      !decoded.companySlug ||
-      !decoded.companyLoginImageUrl ||
-      !decoded.companySidebarImageUrl ||
-      !decoded.companyBrowserIconUrl
+      !decoded.companySlug
     ) {
       return null
     }
@@ -43,7 +53,13 @@ export async function getCustomerSessionFromCookies() {
       return null
     }
 
-    return decoded
+    return {
+      ...decoded,
+      companyName: decoded.companyName || "Technode",
+      companyLoginImageUrl: loginImageUrl,
+      companySidebarImageUrl: sidebarImageUrl,
+      companyBrowserIconUrl: browserIconUrl,
+    }
   } catch {
     return null
   }

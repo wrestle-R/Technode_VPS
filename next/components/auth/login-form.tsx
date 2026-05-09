@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 
@@ -15,7 +14,6 @@ export function LoginForm({
     loginImageUrl: string
   }
 }) {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -54,8 +52,7 @@ export function LoginForm({
       }
 
       toast.success("Signed in successfully")
-      router.push("/dashboard")
-      router.refresh()
+      window.location.assign("/dashboard")
     } catch {
       const message = "Unable to connect to login server."
       setError(message)
@@ -76,7 +73,11 @@ export function LoginForm({
             height={56}
             unoptimized
             className="mx-auto mb-5 h-14 w-auto max-w-[220px] object-contain"
-            onError={() => setLogoSrc("/logo.png")}
+            onError={() => {
+              if (logoSrc !== "/logo.png") {
+                setLogoSrc("/logo.png")
+              }
+            }}
           />
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">Sign in</h1>
           <p className="mt-2 text-sm text-muted-foreground">Use your customer account credentials</p>

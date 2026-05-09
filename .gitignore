@@ -43,3 +43,6 @@ pnpm-debug.log*
 /next/uploads/
 
 # NOTE: .env files are intentionally NOT ignored per request.
+
+skills-lock.json
+.agents

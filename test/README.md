@@ -2,10 +2,10 @@
 
 Publish fake EMS snapshots from the repo root with Python.
 
-Install the MQTT dependency once:
+Install and run via the script (it auto-creates `test/ems/.venv` and installs deps there):
 
 ```bash
-pip install -r test/ems/requirements.txt
+./test/ems/run_ems_publisher.sh
 ```
 
 Run the publisher:

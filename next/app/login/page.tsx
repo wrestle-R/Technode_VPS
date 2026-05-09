@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { LoginForm } from "@/components/auth/login-form"
+import { getCustomerSessionFromCookies } from "@/lib/auth"
 import { resolveRequestCompany } from "@/lib/company"
 
 export async function generateMetadata() {
@@ -13,6 +14,11 @@ export async function generateMetadata() {
 }
 
 export default async function LoginPage() {
+  const session = await getCustomerSessionFromCookies()
+  if (session) {
+    redirect("/dashboard")
+  }
+
   const company = await resolveRequestCompany()
   if (!company) {
     notFound()

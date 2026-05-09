@@ -2,13 +2,11 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 
 export default function HiddenAdminLoginPage() {
-  const router = useRouter()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -45,8 +43,7 @@ export default function HiddenAdminLoginPage() {
       }
 
       toast.success("Admin sign-in successful")
-      router.push("/admin/dashboard")
-      router.refresh()
+      window.location.assign("/admin/dashboard")
     } catch {
       const message = "Unable to connect to admin login."
       setError(message)
