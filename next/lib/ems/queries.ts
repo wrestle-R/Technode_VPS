@@ -6,7 +6,8 @@ function asNumber(value: { toString(): string } | null | undefined) {
   return value ? Number(value.toString()) : null
 }
 
-const UNIT_DETAIL_LOG_LIMIT = 500
+const ADMIN_UNIT_DETAIL_LOG_LIMIT = 500
+const CUSTOMER_UNIT_DETAIL_LOG_LIMIT = 80
 const UNIT_LIST_STATUS_LOOKBACK = 20
 const DATA_FRESH_TIMEOUT_MS = 2 * 60 * 1000
 
@@ -574,7 +575,7 @@ export async function getAdminEmsUnit(unitId: string) {
       logs: {
         where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: UNIT_DETAIL_LOG_LIMIT,
+        take: ADMIN_UNIT_DETAIL_LOG_LIMIT,
       },
     },
   })
@@ -649,7 +650,7 @@ export async function getCustomerEmsUnitDetail({
       logs: {
         where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: UNIT_DETAIL_LOG_LIMIT,
+        take: CUSTOMER_UNIT_DETAIL_LOG_LIMIT,
       },
     },
   })

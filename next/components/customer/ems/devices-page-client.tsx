@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -25,8 +26,18 @@ export function CustomerDevicesPageClient({
 }: {
   initialUnits: CustomerUnitSummary[]
 }) {
+  const router = useRouter()
   const [units, setUnits] = useState(initialUnits)
   const [hasRefreshError, setHasRefreshError] = useState(false)
+
+  useEffect(() => {
+    const topUnits = units.slice(0, 8)
+    for (const unit of topUnits) {
+      router.prefetch(`/devices/ems/${unit.unitId}/charts`)
+      router.prefetch(`/devices/ems/${unit.unitId}/logs`)
+      router.prefetch(`/devices/ems/${unit.unitId}/reports`)
+    }
+  }, [router, units])
 
   useEffect(() => {
     let cancelled = false
