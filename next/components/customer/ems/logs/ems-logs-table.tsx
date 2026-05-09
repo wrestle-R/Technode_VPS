@@ -7,9 +7,9 @@ type LogRow = {
 }
 
 type EmsLogsTableProps = {
-  effectiveRtuKey: string
-  availableRtus: Array<{ rtuKey: string; nickname: string }>
-  onRtuChange: (nextRtuKey: string) => void
+  effectiveMeterKey: string
+  availableMeters: Array<{ meterKey: string; name: string }>
+  onMeterChange: (nextMeterKey: string) => void
   metricColumns: Array<{ key: string; label: string; order: number }>
   selectedLogRows: LogRow[]
   pageIndex: number
@@ -21,9 +21,9 @@ type EmsLogsTableProps = {
 }
 
 export function EmsLogsTable({
-  effectiveRtuKey,
-  availableRtus,
-  onRtuChange,
+  effectiveMeterKey,
+  availableMeters,
+  onMeterChange,
   metricColumns,
   selectedLogRows,
   pageIndex,
@@ -43,12 +43,12 @@ export function EmsLogsTable({
           <span className="font-medium">Meter</span>
           <select
             className="h-10 rounded-xl border border-input bg-white/90 px-3"
-            value={effectiveRtuKey}
-            onChange={(event) => onRtuChange(event.target.value)}
+            value={effectiveMeterKey}
+            onChange={(event) => onMeterChange(event.target.value)}
           >
-            {availableRtus.map((rtu) => (
-              <option key={rtu.rtuKey} value={rtu.rtuKey}>
-                {rtu.nickname}
+            {availableMeters.map((meter) => (
+              <option key={meter.meterKey} value={meter.meterKey}>
+                {meter.name}
               </option>
             ))}
           </select>

@@ -25,16 +25,16 @@ export async function GET(
   const { unitId } = await params
   const url = new URL(request.url)
   const range = parseRange(url.searchParams.get("range"))
-  const rtuKey = url.searchParams.get("rtuKey")?.trim()
+  const meterKey = url.searchParams.get("meterKey")?.trim()
 
-  if (!rtuKey) {
-    return NextResponse.json({ error: "Missing rtuKey" }, { status: 400 })
+  if (!meterKey) {
+    return NextResponse.json({ error: "Missing meterKey" }, { status: 400 })
   }
 
   const summary = await getCustomerEmsSummaryStats({
     customerId: session.customerId,
     unitId,
-    rtuKey,
+    meterKey,
     range,
   })
 

@@ -78,9 +78,9 @@ export async function GET(
 
   const { unitId } = await params
   const url = new URL(request.url)
-  const rtuKey = url.searchParams.get("rtuKey")?.trim()
-  if (!rtuKey) {
-    return NextResponse.json({ error: "Missing rtuKey" }, { status: 400 })
+  const meterKey = url.searchParams.get("meterKey")?.trim()
+  if (!meterKey) {
+    return NextResponse.json({ error: "Missing meterKey" }, { status: 400 })
   }
 
   const reportRange = url.searchParams.get("reportRange")
@@ -92,7 +92,7 @@ export async function GET(
   const rowCount = await countCustomerEmsRawRows({
     customerId: session.customerId,
     unitId,
-    rtuKey,
+    meterKey,
     startAt,
     endAt,
   })

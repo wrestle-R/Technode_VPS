@@ -65,7 +65,7 @@ function summarizeUnit(unit: CustomerUnitDetail): CustomerUnitSummary {
     longitude: unit.longitude,
     deviceType: unit.deviceType,
     lastSeenAt: unit.lastSeenAt,
-    slaveCount: unit.latestRtus.length,
+    meterCount: unit.latestMeters.length,
   }
 }
 

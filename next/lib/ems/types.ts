@@ -1,51 +1,42 @@
-export type EmsFieldTemplateEntry = {
-  index: number
-  key: string
-  label: string
-  visible: boolean
-  order: number
-}
+export type EmsMeterPayload = Record<string, unknown>
 
-export type EmsRtuOverride = {
-  nickname?: string
-  fieldTemplate?: EmsFieldTemplateEntry[]
-}
-
-export type EmsRtuOverrides = Record<string, EmsRtuOverride>
-
-export type EmsRtuPayload = {
-  id?: number
-  slave?: string
-  nickname?: string
-  res?: string
-  data?: number[]
-  datalen?: number
-}
-
-export type EmsPayload = {
+export type EmsDataPayload = {
   ID?: string
+  MODEL?: string
   Status?: string
   Signal?: number
   Location?: string
-  RTU?: EmsRtuPayload[]
+  data?: Record<string, EmsMeterPayload>
   TS?: string
   DT?: string
 }
 
-export type EmsStatusPayload = {
+export type EmsConnectionPayload = {
   ID?: string
-  state?: string
+  MODEL?: string
   Status?: string
-  reason?: string
-  ts?: string
+  Signal?: number
+  Location?: string
   TS?: string
+  DT?: string
 }
 
-export type MappedRtuEntry = {
-  id: number | null
-  slave: string | null
-  nickname: string
-  res: string | null
-  datalen: number
-  metrics: Record<string, number | null>
+export type ParsedConnectionPayload = {
+  id: string
+  state: "online" | "offline"
+  model: string | null
+  signal: number | null
+  location: string | null
+  timestamp: Date
+  raw: EmsConnectionPayload
+}
+
+export type ParsedDataPayload = {
+  id: string
+  status: "online" | "offline" | null
+  signal: number | null
+  location: string | null
+  meters: Record<string, EmsMeterPayload>
+  timestamp: Date
+  raw: EmsDataPayload
 }

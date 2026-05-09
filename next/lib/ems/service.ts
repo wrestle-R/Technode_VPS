@@ -1,25 +1,81 @@
 import { Prisma } from "@prisma/client"
 
-import { buildDefaultFieldTemplate } from "@/lib/ems/config"
 import { prisma } from "@/lib/prisma"
 import type {
-  EmsFieldTemplateEntry,
-  EmsPayload,
-  EmsRtuOverride,
-  EmsRtuOverrides,
-  EmsRtuPayload,
-  EmsStatusPayload,
-  MappedRtuEntry,
+  EmsConnectionPayload,
+  EmsDataPayload,
+  EmsMeterPayload,
+  ParsedConnectionPayload,
+  ParsedDataPayload,
 } from "@/lib/ems/types"
 
 function asJson(value: unknown) {
   return value as Prisma.InputJsonValue
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function isNumericDeviceId(value: string) {
+  return /^[0-9]+$/.test(value)
+}
+
+function parseDeviceTimestamp(value?: string) {
+  if (!value) {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    const numeric = Number(trimmed)
+    if (Number.isFinite(numeric)) {
+      const millis = trimmed.length >= 13 ? numeric : numeric * 1000
+      const parsed = new Date(millis)
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed
+      }
+    }
+  }
+
+  const parsed = new Date(trimmed)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function resolvePayloadTimestamp(payload: { TS?: string; DT?: string }) {
+  return parseDeviceTimestamp(payload.TS) ?? parseDeviceTimestamp(payload.DT) ?? new Date()
+}
+
+function normalizeStatus(raw: unknown) {
+  if (typeof raw !== "string") {
+    return null
+  }
+
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === "online" || normalized === "offline") {
+    return normalized
+  }
+
+  return null
+}
+
+function strictLocation(raw: Record<string, unknown>) {
+  if (!Object.prototype.hasOwnProperty.call(raw, "Location")) {
+    return null
+  }
+
+  const value = raw.Location
+  return typeof value === "string" ? value.trim() || null : null
+}
+
 export function parseTopicUnitId(topic: string) {
   const trimmed = topic.replace(/^\/+/, "")
   const [unitId] = trimmed.split("/")
-  return unitId || null
+  return unitId?.trim() || null
 }
 
 export function parseTopicMessageType(topic: string) {
@@ -32,145 +88,88 @@ export function parseIncomingPayload(raw: string) {
   return JSON.parse(raw) as unknown
 }
 
-export function parseDataPayload(raw: unknown) {
-  const payload = raw as EmsPayload
-
-  if (!payload?.ID || !Array.isArray(payload.RTU)) {
-    throw new Error("Invalid EMS payload")
+export function parseConnectionPayload(raw: unknown): ParsedConnectionPayload {
+  if (!isPlainObject(raw)) {
+    throw new Error("Invalid connection payload")
   }
 
-  return payload
-}
-
-export function parseStatusPayload(raw: unknown) {
-  const payload = raw as EmsStatusPayload
-  if (!payload?.ID || typeof payload.ID !== "string") {
-    throw new Error("Invalid EMS status payload")
+  const payload = raw as EmsConnectionPayload
+  const id = typeof payload.ID === "string" ? payload.ID.trim() : ""
+  if (!id) {
+    throw new Error("Connection payload is missing ID")
+  }
+  if (!isNumericDeviceId(id)) {
+    throw new Error("Connection payload ID must be numeric")
   }
 
-  const rawState =
-    typeof payload.state === "string"
-      ? payload.state
-      : typeof payload.Status === "string"
-        ? payload.Status
-        : ""
-
-  const normalizedState = rawState.trim().toLowerCase()
-  if (normalizedState !== "online" && normalizedState !== "offline") {
-    throw new Error("Status payload state must be online or offline")
+  const state = normalizeStatus(payload.Status)
+  if (!state) {
+    throw new Error("Connection payload Status must be Online or Offline")
   }
+
+  const typed = raw as Record<string, unknown>
 
   return {
-    id: payload.ID.trim(),
-    state: normalizedState as "online" | "offline",
-    reason: typeof payload.reason === "string" ? payload.reason.trim() || null : null,
-    timestamp: parseTimestamp(payload.ts ?? payload.TS),
+    id,
+    state,
+    model: typeof payload.MODEL === "string" ? payload.MODEL.trim() || null : null,
+    signal: typeof payload.Signal === "number" && Number.isFinite(payload.Signal) ? payload.Signal : null,
+    location: strictLocation(typed),
+    timestamp: resolvePayloadTimestamp(payload),
     raw: payload,
   }
 }
 
-export function normalizeFieldTemplate(input: unknown): EmsFieldTemplateEntry[] {
-  if (!Array.isArray(input)) {
-    return buildDefaultFieldTemplate()
+function normalizeMeterMap(rawMeters: unknown) {
+  if (!isPlainObject(rawMeters)) {
+    throw new Error("Data payload must contain a data object")
   }
 
-  const normalized = input
-    .map((entry) => {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        return null
-      }
-
-      const value = entry as Partial<EmsFieldTemplateEntry>
-      const index = Number(value.index)
-      const order = Number(value.order)
-
-      if (Number.isNaN(index) || typeof value.key !== "string" || typeof value.label !== "string") {
-        return null
-      }
-
-      return {
-        index,
-        key: value.key,
-        label: value.label,
-        visible: value.visible !== false,
-        order: Number.isNaN(order) ? index : order,
-      } satisfies EmsFieldTemplateEntry
-    })
-    .filter((entry): entry is EmsFieldTemplateEntry => Boolean(entry))
-
-  return normalized.length > 0 ? normalized.sort((a, b) => a.order - b.order) : buildDefaultFieldTemplate()
-}
-
-export function normalizeRtuOverrides(input: unknown): EmsRtuOverrides {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return {}
-  }
-
-  const overrides: EmsRtuOverrides = {}
-
-  for (const [key, value] of Object.entries(input)) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
+  const meters: Record<string, EmsMeterPayload> = {}
+  for (const [meterKey, meterValue] of Object.entries(rawMeters)) {
+    if (!meterKey.trim()) {
       continue
     }
 
-    const override = value as EmsRtuOverride
-    overrides[key] = {
-      nickname: typeof override.nickname === "string" ? override.nickname : undefined,
-      fieldTemplate: normalizeFieldTemplate(override.fieldTemplate),
+    if (!isPlainObject(meterValue)) {
+      continue
     }
+
+    meters[meterKey] = meterValue
   }
 
-  return overrides
-}
-
-function getRtuKey(rtu: Pick<EmsRtuPayload, "id" | "slave">) {
-  if (typeof rtu.id === "number" && !Number.isNaN(rtu.id)) {
-    return String(rtu.id)
+  if (Object.keys(meters).length === 0) {
+    throw new Error("Data payload must include at least one meter")
   }
 
-  return rtu.slave?.trim() || "unknown"
+  return meters
 }
 
-function resolveRtuOverride(overrides: EmsRtuOverrides, rtu: Pick<EmsRtuPayload, "id" | "slave">) {
-  return overrides[getRtuKey(rtu)]
-}
+export function parseDataPayload(raw: unknown): ParsedDataPayload {
+  if (!isPlainObject(raw)) {
+    throw new Error("Invalid data payload")
+  }
 
-function mapRtus({
-  rtus,
-  unitTemplate,
-  overrides,
-}: {
-  rtus: EmsRtuPayload[]
-  unitTemplate: EmsFieldTemplateEntry[]
-  overrides: EmsRtuOverrides
-}): MappedRtuEntry[] {
-  return rtus.map((rtu) => {
-    const override = resolveRtuOverride(overrides, rtu)
-    const metrics: Record<string, number | null> = {}
+  const payload = raw as EmsDataPayload
+  const id = typeof payload.ID === "string" ? payload.ID.trim() : ""
+  if (!id) {
+    throw new Error("Data payload is missing ID")
+  }
+  if (!isNumericDeviceId(id)) {
+    throw new Error("Data payload ID must be numeric")
+  }
 
-    for (const field of unitTemplate) {
-      if (!field.visible) {
-        continue
-      }
+  const typed = raw as Record<string, unknown>
 
-      const rawValue = Array.isArray(rtu.data) ? rtu.data[field.index] : undefined
-      metrics[field.key] = typeof rawValue === "number" ? rawValue : null
-    }
-
-    return {
-      id: typeof rtu.id === "number" ? rtu.id : null,
-      slave: rtu.slave?.trim() || null,
-      nickname: override?.nickname?.trim() || rtu.slave?.trim() || `RTU-${rtu.id ?? "unknown"}`,
-      res: rtu.res?.trim() || null,
-      datalen: typeof rtu.datalen === "number" ? rtu.datalen : Array.isArray(rtu.data) ? rtu.data.length : 0,
-      metrics,
-    }
-  })
-}
-
-function parseTimestamp(value?: string) {
-  const timestamp = value ? new Date(value) : new Date()
-  return Number.isNaN(timestamp.getTime()) ? new Date() : timestamp
+  return {
+    id,
+    status: normalizeStatus(payload.Status),
+    signal: typeof payload.Signal === "number" && Number.isFinite(payload.Signal) ? payload.Signal : null,
+    location: strictLocation(typed),
+    meters: normalizeMeterMap(payload.data),
+    timestamp: resolvePayloadTimestamp(payload),
+    raw: payload,
+  }
 }
 
 export async function ingestEmsPayload({
@@ -178,168 +177,95 @@ export async function ingestEmsPayload({
   payload,
 }: {
   topic: string
-  payload: EmsPayload
+  payload: ParsedDataPayload
 }) {
-  const unitId = payload.ID?.trim()
-  if (!unitId) {
-    throw new Error("Payload is missing ID")
-  }
-
   const topicUnitId = parseTopicUnitId(topic)
-  if (topicUnitId && topicUnitId !== unitId) {
-    throw new Error(`Topic unit ${topicUnitId} does not match payload unit ${unitId}`)
+  if (topicUnitId && topicUnitId !== payload.id) {
+    throw new Error(`Topic unit ${topicUnitId} does not match payload unit ${payload.id}`)
   }
-
-  const existing = await prisma.emsUnit.findUnique({
-    where: { unit_id: unitId },
-    select: {
-      unit_field_template: true,
-      rtu_overrides: true,
-    },
-  })
-
-  const unitTemplate = normalizeFieldTemplate(existing?.unit_field_template)
-  const overrides = normalizeRtuOverrides(existing?.rtu_overrides)
-  const timestamp = parseTimestamp(payload.TS)
-  const rawRtuArray = Array.isArray(payload.RTU) ? payload.RTU : []
 
   const unit = await prisma.emsUnit.upsert({
-    where: { unit_id: unitId },
+    where: { unit_id: payload.id },
     create: {
-      unit_id: unitId,
-      location_label: payload.Location?.trim() || null,
-      device_type: payload.DT?.trim() || null,
-      last_seen_at: timestamp,
+      unit_id: payload.id,
+      location_label: payload.location,
+      device_type: typeof payload.raw.MODEL === "string" ? payload.raw.MODEL.trim() || null : null,
       topic_path: topic,
-      unit_field_template: asJson(unitTemplate),
-      rtu_overrides: asJson(overrides),
+      last_seen_at: payload.timestamp,
+      last_status: payload.status === "offline" ? "Offline" : "Online",
     },
     update: {
-      location_label: payload.Location?.trim() || null,
-      device_type: payload.DT?.trim() || null,
-      last_seen_at: timestamp,
+      location_label: payload.location,
       topic_path: topic,
+      last_seen_at: payload.timestamp,
+      last_status: payload.status === "offline" ? "Offline" : "Online",
     },
-    select: {
-      id: true,
-      unit_field_template: true,
-      rtu_overrides: true,
-    },
-  })
-
-  const effectiveTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const effectiveOverrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const mappedRtuArray = mapRtus({
-    rtus: rawRtuArray,
-    unitTemplate: effectiveTemplate,
-    overrides: effectiveOverrides,
+    select: { id: true },
   })
 
   await prisma.emsLog.create({
     data: {
       ems_unit_id: unit.id,
-      device_timestamp: timestamp,
-      raw_unit_payload: asJson(payload),
-      raw_rtu_array: asJson(rawRtuArray),
-      mapped_rtu_array: asJson(mappedRtuArray),
+      message_type: "data",
+      status_value: payload.status,
+      device_timestamp: payload.timestamp,
+      raw_payload: asJson(payload.raw),
+      meter_payload: asJson(payload.meters),
     },
   })
 
   return {
-    unitId,
+    unitId: payload.id,
     unitDbId: unit.id.toString(),
-    slaveCount: rawRtuArray.length,
+    meterCount: Object.keys(payload.meters).length,
   }
 }
 
-export async function ingestEmsStatusPayload({
+export async function ingestEmsConnectionPayload({
   topic,
   payload,
 }: {
   topic: string
-  payload: unknown
+  payload: ParsedConnectionPayload
 }) {
-  const parsed = parseStatusPayload(payload)
-  const unitId = parsed.id
-  if (!unitId) {
-    throw new Error("Status payload is missing ID")
-  }
-
   const topicUnitId = parseTopicUnitId(topic)
-  if (topicUnitId && topicUnitId !== unitId) {
-    throw new Error(`Topic unit ${topicUnitId} does not match payload unit ${unitId}`)
+  if (topicUnitId && topicUnitId !== payload.id) {
+    throw new Error(`Topic unit ${topicUnitId} does not match payload unit ${payload.id}`)
   }
-
-  const existing = await prisma.emsUnit.findUnique({
-    where: { unit_id: unitId },
-    select: {
-      unit_field_template: true,
-      rtu_overrides: true,
-    },
-  })
-
-  const unitTemplate = normalizeFieldTemplate(existing?.unit_field_template)
-  const overrides = normalizeRtuOverrides(existing?.rtu_overrides)
 
   const unit = await prisma.emsUnit.upsert({
-    where: { unit_id: unitId },
+    where: { unit_id: payload.id },
     create: {
-      unit_id: unitId,
-      last_seen_at: parsed.timestamp,
+      unit_id: payload.id,
+      location_label: payload.location,
+      device_type: payload.model,
       topic_path: topic,
-      unit_field_template: asJson(unitTemplate),
-      rtu_overrides: asJson(overrides),
+      last_seen_at: payload.timestamp,
+      last_status: payload.state === "offline" ? "Offline" : "Online",
     },
     update: {
-      last_seen_at: parsed.timestamp,
+      location_label: payload.location,
+      device_type: payload.model,
       topic_path: topic,
+      last_seen_at: payload.timestamp,
+      last_status: payload.state === "offline" ? "Offline" : "Online",
     },
-    select: {
-      id: true,
-    },
+    select: { id: true },
   })
 
   await prisma.emsLog.create({
     data: {
       ems_unit_id: unit.id,
-      device_timestamp: parsed.timestamp,
-      raw_unit_payload: asJson({
-        ID: unitId,
-        state: parsed.state,
-        reason: parsed.reason,
-        TS: parsed.timestamp.toISOString(),
-      }),
-      raw_rtu_array: asJson([]),
-      mapped_rtu_array: asJson([]),
+      message_type: "connection",
+      status_value: payload.state,
+      device_timestamp: payload.timestamp,
+      raw_payload: asJson(payload.raw),
+      meter_payload: asJson({}),
     },
   })
 
   return {
-    unitId,
-    state: parsed.state,
+    unitId: payload.id,
+    state: payload.state,
   }
-}
-
-export function mapStoredRtuArray({
-  rawRtuArray,
-  unitTemplate,
-  overrides,
-}: {
-  rawRtuArray: unknown
-  unitTemplate: EmsFieldTemplateEntry[]
-  overrides: EmsRtuOverrides
-}) {
-  if (!Array.isArray(rawRtuArray)) {
-    return []
-  }
-
-  const rtus = rawRtuArray.filter(
-    (value): value is EmsRtuPayload => Boolean(value) && typeof value === "object" && !Array.isArray(value)
-  )
-
-  return mapRtus({
-    rtus,
-    unitTemplate,
-    overrides,
-  })
 }

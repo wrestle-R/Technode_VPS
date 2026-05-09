@@ -11,7 +11,7 @@ type CustomerUnitSummary = {
   status: string
   locationLabel: string | null
   lastSeenAt: string | null
-  slaveCount: number
+  meterCount: number
 }
 
 function statusClasses(status: string) {
@@ -99,7 +99,7 @@ export function CustomerDevicesPageClient({
               {unit.locationLabel ?? "No location set"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Slaves in latest snapshot: {unit.slaveCount}
+              Meters in latest snapshot: {unit.meterCount}
             </p>
           </Link>
         </motion.article>

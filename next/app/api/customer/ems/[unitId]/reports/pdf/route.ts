@@ -113,13 +113,13 @@ function fixed(value: number | null, digits: number) {
 async function collectTrendRows({
   customerId,
   unitId,
-  rtuKey,
+  meterKey,
   startAt,
   endAt,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
+  meterKey: string
   startAt?: Date
   endAt?: Date
 }) {
@@ -128,7 +128,7 @@ async function collectTrendRows({
   for await (const row of streamCustomerRawRows({
     customerId,
     unitId,
-    rtuKey,
+    meterKey,
     startAt,
     endAt,
   })) {
@@ -510,9 +510,9 @@ export async function GET(
 
   const { unitId } = await params
   const url = new URL(request.url)
-  const rtuKey = url.searchParams.get("rtuKey")?.trim()
-  if (!rtuKey) {
-    return Response.json({ error: "Missing rtuKey" }, { status: 400 })
+  const meterKey = url.searchParams.get("meterKey")?.trim()
+  if (!meterKey) {
+    return Response.json({ error: "Missing meterKey" }, { status: 400 })
   }
 
   const reportType = parseReportType(url.searchParams.get("reportType"))
@@ -546,7 +546,7 @@ export async function GET(
   const trendRows = await collectTrendRows({
     customerId: session.customerId,
     unitId,
-    rtuKey,
+    meterKey,
     startAt,
     endAt,
   })

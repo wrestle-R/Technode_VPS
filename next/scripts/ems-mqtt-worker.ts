@@ -2,8 +2,9 @@ import mqtt from "mqtt"
 
 import { MQTT_BROKER_URL, MQTT_TOPIC_PATTERNS } from "@/lib/ems/config"
 import {
+  ingestEmsConnectionPayload,
   ingestEmsPayload,
-  ingestEmsStatusPayload,
+  parseConnectionPayload,
   parseDataPayload,
   parseIncomingPayload,
   parseTopicMessageType,
@@ -33,8 +34,9 @@ client.on("message", async (topic, message) => {
     const rawPayload = parseIncomingPayload(message.toString("utf-8"))
     const messageType = parseTopicMessageType(topic)
 
-    if (messageType === "status") {
-      const result = await ingestEmsStatusPayload({ topic, payload: rawPayload })
+    if (messageType === "connection") {
+      const payload = parseConnectionPayload(rawPayload)
+      const result = await ingestEmsConnectionPayload({ topic, payload })
       console.log(`[ems:mqtt] status ${result.unitId} -> ${result.state}`)
       return
     }
@@ -42,7 +44,7 @@ client.on("message", async (topic, message) => {
     if (messageType === "data") {
       const payload = parseDataPayload(rawPayload)
       const result = await ingestEmsPayload({ topic, payload })
-      console.log(`[ems:mqtt] stored ${result.unitId} with ${result.slaveCount} slaves`)
+      console.log(`[ems:mqtt] stored ${result.unitId} with ${result.meterCount} meters`)
       return
     }
 

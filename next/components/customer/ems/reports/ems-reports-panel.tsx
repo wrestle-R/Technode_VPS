@@ -72,9 +72,9 @@ function reportRangeLabel({
 
 export function EmsReportsPanel({
   unitId,
-  effectiveRtuKey,
-  availableRtus,
-  onRtuChange,
+  effectiveMeterKey,
+  availableMeters,
+  onMeterChange,
   reportRange,
   reportType,
   onReportRangeChange,
@@ -95,9 +95,9 @@ export function EmsReportsPanel({
   isReportRowsInRangeCountLoading,
 }: {
   unitId: string
-  effectiveRtuKey: string
-  availableRtus: Array<{ rtuKey: string; nickname: string }>
-  onRtuChange: (nextRtuKey: string) => void
+  effectiveMeterKey: string
+  availableMeters: Array<{ meterKey: string; name: string }>
+  onMeterChange: (nextMeterKey: string) => void
   reportRange: ReportRange
   reportType: ReportType
   onReportRangeChange: (nextRange: ReportRange) => void
@@ -270,12 +270,12 @@ export function EmsReportsPanel({
                 <span className="font-medium">Device / Meter</span>
                 <select
                   className="h-10 rounded-xl border border-input bg-white/90 px-3"
-                  value={effectiveRtuKey}
-                  onChange={(event) => onRtuChange(event.target.value)}
+                  value={effectiveMeterKey}
+                  onChange={(event) => onMeterChange(event.target.value)}
                 >
-                  {availableRtus.map((rtu) => (
-                    <option key={rtu.rtuKey} value={rtu.rtuKey}>
-                      {rtu.nickname}
+                  {availableMeters.map((meter) => (
+                    <option key={meter.meterKey} value={meter.meterKey}>
+                      {meter.name}
                     </option>
                   ))}
                 </select>

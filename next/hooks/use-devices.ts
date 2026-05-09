@@ -11,7 +11,7 @@ type Unit = {
   deviceType: "ems" | "other"
   status: string
   locationLabel?: string | null
-  slaveCount: number
+  meterCount: number
   devices: Device[]
 }
 
@@ -47,7 +47,7 @@ export function useDevices(enabled = true) {
             unitId: string
             status: string
             locationLabel?: string | null
-            slaveCount: number
+            meterCount: number
           }>
         }
 
@@ -58,7 +58,7 @@ export function useDevices(enabled = true) {
               deviceType: "ems",
               status: unit.status,
               locationLabel: unit.locationLabel ?? null,
-              slaveCount: unit.slaveCount,
+              meterCount: unit.meterCount,
               devices: [
                 { id: `${unit.unitId}-charts` },
                 { id: `${unit.unitId}-logs` },

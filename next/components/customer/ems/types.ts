@@ -5,13 +5,9 @@ export type MetricValue = {
   value: number | null
 }
 
-export type RtuEntry = {
-  rtuKey: string
-  id: number | null
-  slave: string | null
-  nickname: string
-  res: string | null
-  datalen: number
+export type MeterEntry = {
+  meterKey: string
+  name: string
   metrics: MetricValue[]
 }
 
@@ -19,7 +15,7 @@ export type UnitLog = {
   id: string
   deviceTimestamp: string
   status: string
-  rtus: RtuEntry[]
+  meters: MeterEntry[]
 }
 
 export type CustomerUnitSummary = {
@@ -31,7 +27,7 @@ export type CustomerUnitSummary = {
   longitude: number | null
   deviceType: string | null
   lastSeenAt: string | null
-  slaveCount: number
+  meterCount: number
 }
 
 export type CustomerUnitDetail = {
@@ -43,7 +39,7 @@ export type CustomerUnitDetail = {
   longitude: number | null
   deviceType: string | null
   lastSeenAt: string | null
-  latestRtus: RtuEntry[]
+  latestMeters: MeterEntry[]
   logs: UnitLog[]
 }
 

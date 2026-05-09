@@ -15,7 +15,7 @@ export default async function CustomerDashboardPage() {
   const onlineUnits = units.filter(
     (unit) => unit.status.toLowerCase() === "online"
   )
-  const totalSlaves = units.reduce((sum, unit) => sum + unit.slaveCount, 0)
+  const totalMeters = units.reduce((sum, unit) => sum + unit.meterCount, 0)
   const connectedDevices = units.filter(
     (unit) => unit.latitude !== null && unit.longitude !== null
   ).length
@@ -52,7 +52,7 @@ export default async function CustomerDashboardPage() {
           </p>
           <div className="mt-3 flex items-baseline gap-2">
             <p className="text-4xl font-bold">{connectedDevices}</p>
-            <p className="text-sm text-muted-foreground font-medium">Pinned on India map, {totalSlaves} visible slaves</p>
+            <p className="text-sm text-muted-foreground font-medium">Pinned on India map, {totalMeters} visible meters</p>
           </div>
         </article>
         <article className="card-glow panel-surface rounded-2xl p-6 flex flex-col justify-center">

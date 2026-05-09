@@ -1,12 +1,11 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { MapPin, Save, SlidersHorizontal } from "lucide-react"
-import { useMemo, useState } from "react"
+import { MapPin, Save } from "lucide-react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import type { EmsFieldTemplateEntry, EmsRtuOverrides } from "@/lib/ems/types"
 
 type CustomerOption = {
   customer_id: number
@@ -15,21 +14,6 @@ type CustomerOption = {
   company: {
     name: string
   }
-}
-
-type MetricRow = {
-  key: string
-  label: string
-  order: number
-  value: number | null
-}
-
-type RtuRow = {
-  rtuKey: string
-  nickname: string
-  slave: string | null
-  fieldTemplate: EmsFieldTemplateEntry[]
-  metrics: MetricRow[]
 }
 
 type UnitEditorProps = {
@@ -43,10 +27,6 @@ type UnitEditorProps = {
     deviceType: string | null
     lastSeenAt: string | null
     topicPath: string | null
-    scalingFactor: number
-    unitFieldTemplate: EmsFieldTemplateEntry[]
-    rtuOverrides: EmsRtuOverrides
-    rtus: RtuRow[]
   }
   customers: CustomerOption[]
 }
@@ -56,52 +36,12 @@ const UnitMapPicker = dynamic(
   { ssr: false }
 )
 
-function formatMetricValue(value: number | null) {
-  return value == null ? "—" : String(value)
-}
-
 export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
   const [saving, setSaving] = useState(false)
   const [customerId, setCustomerId] = useState<string>(unit.customerId ? String(unit.customerId) : "")
   const [locationLabel, setLocationLabel] = useState(unit.locationLabel ?? "")
   const [latitude, setLatitude] = useState(unit.latitude?.toString() ?? "")
   const [longitude, setLongitude] = useState(unit.longitude?.toString() ?? "")
-  const [scalingFactor, setScalingFactor] = useState(unit.scalingFactor?.toString() ?? "1")
-  const [unitTemplate, setUnitTemplate] = useState<EmsFieldTemplateEntry[]>(
-    unit.unitFieldTemplate.slice().sort((a, b) => a.order - b.order)
-  )
-  const [rtus, setRtus] = useState<RtuRow[]>(unit.rtus)
-
-  const latestValuesByRtu = useMemo(() => {
-    return rtus.reduce<Record<string, Record<string, number | null>>>((accumulator, rtu) => {
-      accumulator[rtu.rtuKey] = rtu.metrics.reduce<Record<string, number | null>>((metricMap, metric) => {
-        metricMap[metric.key] = metric.value
-        return metricMap
-      }, {})
-      return accumulator
-    }, {})
-  }, [rtus])
-
-  function updateRtuNickname(rtuKey: string, nickname: string) {
-    setRtus((prev) => prev.map((rtu) => (rtu.rtuKey === rtuKey ? { ...rtu, nickname } : rtu)))
-  }
-
-  function updateUnitField(
-    fieldKey: string,
-    key: keyof Pick<EmsFieldTemplateEntry, "label" | "visible">,
-    value: string | boolean
-  ) {
-    setUnitTemplate((prev) =>
-      prev.map((field) =>
-        field.key === fieldKey
-          ? {
-              ...field,
-              [key]: value,
-            }
-          : field
-      )
-    )
-  }
 
   function updateCoordinates(next: { latitude: number; longitude: number }) {
     setLatitude(next.latitude.toFixed(6))
@@ -110,20 +50,6 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
 
   async function save() {
     setSaving(true)
-
-    const parsedScalingFactor = Number(scalingFactor)
-    if (!Number.isFinite(parsedScalingFactor) || parsedScalingFactor < 0.01 || parsedScalingFactor > 10) {
-      toast.error("Scaling factor must be between 0.01 and 10")
-      setSaving(false)
-      return
-    }
-
-    const rtuOverrides = rtus.reduce<EmsRtuOverrides>((accumulator, rtu) => {
-      accumulator[rtu.rtuKey] = {
-        nickname: rtu.nickname.trim() || undefined,
-      }
-      return accumulator
-    }, {})
 
     try {
       const response = await fetch(`/api/admin/ems/${encodeURIComponent(unit.unitId)}`, {
@@ -136,9 +62,6 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
           locationLabel,
           latitude: latitude ? Number(latitude) : null,
           longitude: longitude ? Number(longitude) : null,
-          scalingFactor: parsedScalingFactor,
-          unitFieldTemplate: unitTemplate,
-          rtuOverrides,
         }),
       })
 
@@ -174,7 +97,7 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">Unit Settings</p>
               <h2 className="mt-2 text-2xl font-semibold">{unit.unitId}</h2>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Assign the unit, place it on the map, rename meters, and manage one shared field layout for the whole unit.
+                Assign this unit and maintain location metadata for telemetry and map views.
               </p>
             </div>
             <Button onClick={save} disabled={saving} size="lg" className="shadow-lg shadow-primary/20">
@@ -229,22 +152,6 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
                   onChange={(event) => setLongitude(event.target.value)}
                 />
               </label>
-              <label className="grid gap-2 text-sm">
-                <span className="font-medium">Scaling Factor</span>
-                <input
-                  className="h-11 rounded-2xl border border-input bg-background px-4"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max="10"
-                  value={scalingFactor}
-                  onChange={(event) => setScalingFactor(event.target.value)}
-                />
-                <span className="text-xs text-muted-foreground">
-                  Applies to voltage, current, power, and energy metrics only.
-                  Power factor and frequency are not scaled.
-                </span>
-              </label>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -292,102 +199,6 @@ export function AdminEmsUnitEditor({ unit, customers }: UnitEditorProps) {
               <UnitMapPicker latitude={mapLatitude} longitude={mapLongitude} onChange={updateCoordinates} />
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="size-4 text-primary" />
-          <div>
-            <h2 className="text-lg font-semibold">Meters</h2>
-            <p className="text-sm text-muted-foreground">
-              Rename each meter here. Field labels and visibility are shared across the whole unit below.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          {rtus.map((rtu) => (
-            <article
-              key={rtu.rtuKey}
-              className="rounded-[28px] border border-border/70 bg-card p-5 shadow-lg transition hover:shadow-xl"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">Meter</p>
-                  <h3 className="mt-1 text-xl font-semibold">{rtu.slave ?? rtu.rtuKey}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">RTU key: {rtu.rtuKey}</p>
-                </div>
-                <div className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
-                  {rtu.metrics.length} mapped fields
-                </div>
-              </div>
-
-              <label className="mt-5 grid gap-2 text-sm">
-                <span className="font-medium">Nickname</span>
-                <input
-                  className="h-11 rounded-2xl border border-input bg-background px-4"
-                  value={rtu.nickname}
-                  onChange={(event) => updateRtuNickname(rtu.rtuKey, event.target.value)}
-                />
-              </label>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-[32px] border border-border/70 bg-card shadow-xl">
-        <div className="bg-[linear-gradient(135deg,rgba(79,70,229,0.08),transparent_60%)] p-6 md:p-8">
-          <h2 className="text-lg font-semibold">Shared Field Setup</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            This layout applies to every meter in this unit. Turn a field off here and it disappears from the customer pages for all meters.
-          </p>
-        </div>
-
-        <div className="overflow-x-auto p-6 md:p-8">
-          <table className="min-w-full text-sm">
-            <thead className="bg-muted/50 text-left text-muted-foreground">
-              <tr>
-                <th className="rounded-l-2xl px-4 py-3 font-medium">Field</th>
-                <th className="px-4 py-3 font-medium">Customer Label</th>
-                {rtus.map((rtu) => (
-                  <th key={`header-${rtu.rtuKey}`} className="px-4 py-3 font-medium">
-                    {rtu.nickname.trim() || rtu.slave || `RTU ${rtu.rtuKey}`}
-                  </th>
-                ))}
-                <th className="rounded-r-2xl px-4 py-3 font-medium">Show</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unitTemplate
-                .slice()
-                .sort((a, b) => a.order - b.order)
-                .map((field) => (
-                  <tr key={field.key} className="border-b border-border/60 last:border-b-0">
-                    <td className="px-4 py-3 font-medium">{field.key}</td>
-                    <td className="px-4 py-3">
-                      <input
-                        className="h-10 w-full min-w-44 rounded-xl border border-input bg-background px-3"
-                        value={field.label}
-                        onChange={(event) => updateUnitField(field.key, "label", event.target.value)}
-                      />
-                    </td>
-                    {rtus.map((rtu) => (
-                      <td key={`${field.key}-${rtu.rtuKey}`} className="px-4 py-3 font-mono text-foreground/80">
-                        {formatMetricValue(latestValuesByRtu[rtu.rtuKey]?.[field.key] ?? null)}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={field.visible}
-                        onChange={(event) => updateUnitField(field.key, "visible", event.target.checked)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
         </div>
       </section>
     </div>

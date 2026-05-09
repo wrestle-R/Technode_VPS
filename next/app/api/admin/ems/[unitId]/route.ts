@@ -3,7 +3,6 @@ import { Prisma } from "@prisma/client"
 
 import { hasAdminSession } from "@/lib/admin-auth"
 import { getAdminEmsUnit } from "@/lib/ems/queries"
-import { normalizeFieldTemplate, normalizeRtuOverrides } from "@/lib/ems/service"
 import { prisma } from "@/lib/prisma"
 
 type UpdateEmsUnitBody = {
@@ -11,13 +10,6 @@ type UpdateEmsUnitBody = {
   locationLabel?: string | null
   latitude?: number | null
   longitude?: number | null
-  scalingFactor?: number
-  unitFieldTemplate?: unknown
-  rtuOverrides?: unknown
-}
-
-function asJson(value: unknown) {
-  return value as Prisma.InputJsonValue
 }
 
 export async function GET(
@@ -55,6 +47,17 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 })
   }
 
+  if (
+    "scalingFactor" in (body as Record<string, unknown>) ||
+    "unitFieldTemplate" in (body as Record<string, unknown>) ||
+    "rtuOverrides" in (body as Record<string, unknown>)
+  ) {
+    return NextResponse.json(
+      { error: "Legacy mapping/scaling fields are no longer supported." },
+      { status: 400 }
+    )
+  }
+
   const customerId =
     body.customerId == null || body.customerId === 0 ? null : Number(body.customerId)
   const latitude = body.latitude == null ? null : Number(body.latitude)
@@ -72,14 +75,6 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid longitude." }, { status: 400 })
   }
 
-  const scalingFactor = body.scalingFactor == null ? 1 : Number(body.scalingFactor)
-  if (Number.isNaN(scalingFactor) || scalingFactor < 0.01 || scalingFactor > 10) {
-    return NextResponse.json({ error: "Invalid scaling factor. Must be between 0.01 and 10." }, { status: 400 })
-  }
-
-  const unitFieldTemplate = normalizeFieldTemplate(body.unitFieldTemplate)
-  const rtuOverrides = normalizeRtuOverrides(body.rtuOverrides)
-
   try {
     await prisma.emsUnit.update({
       where: { unit_id: unitId },
@@ -95,9 +90,6 @@ export async function PUT(
         location_label: body.locationLabel?.trim() || null,
         latitude,
         longitude,
-        scalingFactor,
-        unit_field_template: asJson(unitFieldTemplate),
-        rtu_overrides: asJson(rtuOverrides),
       },
     })
   } catch (error) {

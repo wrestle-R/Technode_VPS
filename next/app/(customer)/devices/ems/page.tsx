@@ -12,7 +12,7 @@ export default async function CustomerDevicesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">EMS Devices</h1>
-        <p className="text-sm text-muted-foreground">Select a unit to inspect all mapped slaves and recent snapshots.</p>
+        <p className="text-sm text-muted-foreground">Select a unit to inspect mapped meters and recent snapshots.</p>
       </div>
 
       <CustomerDevicesPageClient initialUnits={units} />

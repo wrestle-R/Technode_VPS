@@ -76,18 +76,18 @@ function toDateParam(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function mapLogsForRtu(logs: UnitLog[], rtuKey: string) {
+function mapLogsForMeter(logs: UnitLog[], meterKey: string) {
   return logs
     .map((log) => {
-      const rtu = log.rtus.find((entry) => entry.rtuKey === rtuKey)
-      if (!rtu) {
+      const meter = log.meters.find((entry) => entry.meterKey === meterKey)
+      if (!meter) {
         return null
       }
 
       return {
         id: log.id,
         deviceTimestamp: log.deviceTimestamp,
-        metrics: rtu.metrics,
+        metrics: meter.metrics,
       }
     })
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
@@ -117,8 +117,8 @@ export function CustomerUnitTabClient({
   const { activeUnit, refreshCurrentUnit, setActiveUnit } = useCustomerEms()
   const unit =
     activeUnit && activeUnit.unitId === initialUnit.unitId ? activeUnit : initialUnit
-  const [selectedRtuKey, setSelectedRtuKey] = useState(
-    initialUnit.latestRtus[0]?.rtuKey ?? ""
+  const [selectedMeterKey, setSelectedMeterKey] = useState(
+    initialUnit.latestMeters[0]?.meterKey ?? ""
   )
   const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("overview")
   const chartTabStorageKey = `ems:chart-tab:${initialUnit.unitId}`
@@ -196,8 +196,8 @@ export function CustomerUnitTabClient({
     async function load() {
       const nextUnit = await refreshCurrentUnit(initialUnit.unitId)
       if (!cancelled && nextUnit) {
-        setSelectedRtuKey(
-          (current) => current || nextUnit.latestRtus[0]?.rtuKey || ""
+        setSelectedMeterKey(
+          (current) => current || nextUnit.latestMeters[0]?.meterKey || ""
         )
       }
     }
@@ -241,22 +241,22 @@ export function CustomerUnitTabClient({
     }
   }, [chartTabStorageKey, selectedChartTab, tab])
 
-  const availableRtus = useMemo(() => {
-    const map = new Map<string, { rtuKey: string; nickname: string }>()
+  const availableMeters = useMemo(() => {
+    const map = new Map<string, { meterKey: string; name: string }>()
 
-    for (const rtu of unit.latestRtus) {
-      map.set(rtu.rtuKey, {
-        rtuKey: rtu.rtuKey,
-        nickname: rtu.nickname,
+    for (const meter of unit.latestMeters) {
+      map.set(meter.meterKey, {
+        meterKey: meter.meterKey,
+        name: meter.name,
       })
     }
 
     for (const log of unit.logs) {
-      for (const rtu of log.rtus) {
-        if (!map.has(rtu.rtuKey)) {
-          map.set(rtu.rtuKey, {
-            rtuKey: rtu.rtuKey,
-            nickname: rtu.nickname,
+      for (const meter of log.meters) {
+        if (!map.has(meter.meterKey)) {
+          map.set(meter.meterKey, {
+            meterKey: meter.meterKey,
+            name: meter.name,
           })
         }
       }
@@ -265,16 +265,16 @@ export function CustomerUnitTabClient({
     return Array.from(map.values())
   }, [unit])
 
-  const effectiveRtuKey = selectedRtuKey || availableRtus[0]?.rtuKey || ""
+  const effectiveMeterKey = selectedMeterKey || availableMeters[0]?.meterKey || ""
 
   const selectedLogRows = useMemo(
-    () => mapLogsForRtu(unit.logs, effectiveRtuKey),
-    [effectiveRtuKey, unit.logs]
+    () => mapLogsForMeter(unit.logs, effectiveMeterKey),
+    [effectiveMeterKey, unit.logs]
   )
 
   const pagedSelectedLogRows = useMemo(
-    () => mapLogsForRtu(logsPageRows, effectiveRtuKey),
-    [effectiveRtuKey, logsPageRows]
+    () => mapLogsForMeter(logsPageRows, effectiveMeterKey),
+    [effectiveMeterKey, logsPageRows]
   )
   const latestUnitLogId = unit.logs[0]?.id ?? null
 
@@ -294,7 +294,7 @@ export function CustomerUnitTabClient({
     setLogsPageRows(firstPage.rows)
     setLogsHasMore(firstPage.hasMore)
     setIsLogsPageLoading(false)
-  }, [effectiveRtuKey, latestUnitLogId, unit.logs, unit.unitId])
+  }, [effectiveMeterKey, latestUnitLogId, unit.logs, unit.unitId])
 
   const metricColumns = useMemo(() => {
     const map = new Map<string, { key: string; label: string; order: number }>()
@@ -360,11 +360,11 @@ export function CustomerUnitTabClient({
         return
       }
 
-      if (!effectiveRtuKey) {
+      if (!effectiveMeterKey) {
         return
       }
 
-      const cacheKey = `${unit.unitId}:${effectiveRtuKey}:${summaryRange}`
+      const cacheKey = `${unit.unitId}:${effectiveMeterKey}:${summaryRange}`
       const cached = summaryCacheRef.current.get(cacheKey)
       if (cached) {
         setSummary(cached.data)
@@ -376,7 +376,7 @@ export function CustomerUnitTabClient({
 
       try {
         const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/summary?range=${summaryRange}&rtuKey=${encodeURIComponent(effectiveRtuKey)}`,
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/summary?range=${summaryRange}&meterKey=${encodeURIComponent(effectiveMeterKey)}`,
           {
             cache: "no-store",
           }
@@ -404,7 +404,7 @@ export function CustomerUnitTabClient({
     return () => {
       cancelled = true
     }
-  }, [effectiveRtuKey, selectedChartTab, summaryRange, tab, unit.unitId])
+  }, [effectiveMeterKey, selectedChartTab, summaryRange, tab, unit.unitId])
 
   useEffect(() => {
     let cancelled = false
@@ -414,12 +414,12 @@ export function CustomerUnitTabClient({
         return
       }
 
-      if (!effectiveRtuKey) {
+      if (!effectiveMeterKey) {
         setHourlyCurrent({ points: [], computedAt: new Date().toISOString() })
         return
       }
 
-      const cacheKey = `${unit.unitId}:${effectiveRtuKey}`
+      const cacheKey = `${unit.unitId}:${effectiveMeterKey}`
       const cached = hourlyCurrentCacheRef.current.get(cacheKey)
       if (cached) {
         setHourlyCurrent(cached.data)
@@ -431,7 +431,7 @@ export function CustomerUnitTabClient({
 
       try {
         const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/current-hourly?rtuKey=${encodeURIComponent(effectiveRtuKey)}`,
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/current-hourly?meterKey=${encodeURIComponent(effectiveMeterKey)}`,
           {
             cache: "no-store",
           }
@@ -469,7 +469,7 @@ export function CustomerUnitTabClient({
         window.clearInterval(interval)
       }
     }
-  }, [effectiveRtuKey, selectedChartTab, tab, unit.unitId])
+  }, [effectiveMeterKey, selectedChartTab, tab, unit.unitId])
 
   useEffect(() => {
     let cancelled = false
@@ -479,12 +479,12 @@ export function CustomerUnitTabClient({
         return
       }
 
-      if (!effectiveRtuKey) {
+      if (!effectiveMeterKey) {
         setHourlyVoltage({ points: [], computedAt: new Date().toISOString() })
         return
       }
 
-      const cacheKey = `${unit.unitId}:${effectiveRtuKey}`
+      const cacheKey = `${unit.unitId}:${effectiveMeterKey}`
       const cached = hourlyVoltageCacheRef.current.get(cacheKey)
       if (cached) {
         setHourlyVoltage(cached.data)
@@ -496,7 +496,7 @@ export function CustomerUnitTabClient({
 
       try {
         const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/voltage-hourly?rtuKey=${encodeURIComponent(effectiveRtuKey)}`,
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/voltage-hourly?meterKey=${encodeURIComponent(effectiveMeterKey)}`,
           {
             cache: "no-store",
           }
@@ -534,7 +534,7 @@ export function CustomerUnitTabClient({
         window.clearInterval(interval)
       }
     }
-  }, [effectiveRtuKey, selectedChartTab, tab, unit.unitId])
+  }, [effectiveMeterKey, selectedChartTab, tab, unit.unitId])
 
   useEffect(() => {
     let cancelled = false
@@ -544,12 +544,12 @@ export function CustomerUnitTabClient({
         return
       }
 
-      if (!effectiveRtuKey) {
+      if (!effectiveMeterKey) {
         setEnergyAnalytics(null)
         return
       }
 
-      const cacheKey = `${unit.unitId}:${effectiveRtuKey}:${energyDailyRange}`
+      const cacheKey = `${unit.unitId}:${effectiveMeterKey}:${energyDailyRange}`
       const cached = energyAnalyticsCacheRef.current.get(cacheKey)
       if (cached) {
         setEnergyAnalytics(cached.data)
@@ -566,7 +566,7 @@ export function CustomerUnitTabClient({
 
       try {
         const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/energy-analytics?rtuKey=${encodeURIComponent(effectiveRtuKey)}&dailyRange=${encodeURIComponent(energyDailyRange)}`,
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/energy-analytics?meterKey=${encodeURIComponent(effectiveMeterKey)}&dailyRange=${encodeURIComponent(energyDailyRange)}`,
           {
             cache: "no-store",
           }
@@ -608,7 +608,7 @@ export function CustomerUnitTabClient({
         window.clearInterval(interval)
       }
     }
-  }, [effectiveRtuKey, energyDailyRange, selectedChartTab, tab, unit.unitId])
+  }, [effectiveMeterKey, energyDailyRange, selectedChartTab, tab, unit.unitId])
 
   const reportRows = useMemo(() => {
     return selectReportRows({
@@ -640,7 +640,7 @@ export function CustomerUnitTabClient({
         return
       }
 
-      if (!effectiveRtuKey) {
+      if (!effectiveMeterKey) {
         setIsReportRowsInRangeCountLoading(false)
         setReportRowsInRangeCount(0)
         return
@@ -649,7 +649,7 @@ export function CustomerUnitTabClient({
       setIsReportRowsInRangeCountLoading(true)
 
       const params = new URLSearchParams()
-      params.set("rtuKey", effectiveRtuKey)
+      params.set("meterKey", effectiveMeterKey)
       params.set("reportRange", reportRange)
 
       if (reportRange === "custom") {
@@ -698,7 +698,7 @@ export function CustomerUnitTabClient({
   }, [
     customEndDate,
     customStartDate,
-    effectiveRtuKey,
+    effectiveMeterKey,
     reportRange,
     reportType,
     tab,
@@ -788,7 +788,7 @@ export function CustomerUnitTabClient({
 
   function buildRawCsvExportUrl(dateRangeLabel: string) {
     const params = new URLSearchParams()
-    params.set("rtuKey", effectiveRtuKey)
+    params.set("meterKey", effectiveMeterKey)
     params.set("reportRange", reportRange)
     params.set("dateRangeLabel", dateRangeLabel)
 
@@ -836,7 +836,7 @@ export function CustomerUnitTabClient({
     dateRangeLabel: string
   }) {
     const params = new URLSearchParams()
-    params.set("rtuKey", effectiveRtuKey)
+    params.set("meterKey", effectiveMeterKey)
     params.set("reportType", reportType)
     params.set("reportRange", reportRange)
     params.set("consumptionRange", consumptionRange)
@@ -875,7 +875,7 @@ export function CustomerUnitTabClient({
         : reportDateRangeLabel(reportRows)
 
     if (format === "csv" && reportType === "raw") {
-      if (!effectiveRtuKey) {
+      if (!effectiveMeterKey) {
         toast.error("Please select a meter before exporting")
         return
       }
@@ -910,7 +910,7 @@ export function CustomerUnitTabClient({
       return
     }
 
-    if (!effectiveRtuKey) {
+    if (!effectiveMeterKey) {
       toast.error("Please select a meter before exporting")
       return
     }
@@ -954,12 +954,12 @@ export function CustomerUnitTabClient({
               <span className="font-medium">Meter</span>
               <select
                 className="h-10 rounded-xl border border-input bg-white/90 px-3"
-                value={effectiveRtuKey}
-                onChange={(event) => setSelectedRtuKey(event.target.value)}
+                value={effectiveMeterKey}
+                onChange={(event) => setSelectedMeterKey(event.target.value)}
               >
-                {availableRtus.map((rtu) => (
-                  <option key={rtu.rtuKey} value={rtu.rtuKey}>
-                    {rtu.nickname}
+                {availableMeters.map((meter) => (
+                  <option key={meter.meterKey} value={meter.meterKey}>
+                    {meter.name}
                   </option>
                 ))}
               </select>
@@ -1014,9 +1014,9 @@ export function CustomerUnitTabClient({
     return (
       <EmsReportsPanel
         unitId={unit.unitId}
-        effectiveRtuKey={effectiveRtuKey}
-        availableRtus={availableRtus}
-        onRtuChange={setSelectedRtuKey}
+        effectiveMeterKey={effectiveMeterKey}
+        availableMeters={availableMeters}
+        onMeterChange={setSelectedMeterKey}
         reportRange={reportRange}
         reportType={reportType}
         onReportRangeChange={setReportRange}
@@ -1050,9 +1050,9 @@ export function CustomerUnitTabClient({
       </div>
 
       <EmsLogsTable
-        effectiveRtuKey={effectiveRtuKey}
-        availableRtus={availableRtus}
-        onRtuChange={setSelectedRtuKey}
+        effectiveMeterKey={effectiveMeterKey}
+        availableMeters={availableMeters}
+        onMeterChange={setSelectedMeterKey}
         metricColumns={metricColumns}
         selectedLogRows={pagedSelectedLogRows}
         pageIndex={logsPageIndex}

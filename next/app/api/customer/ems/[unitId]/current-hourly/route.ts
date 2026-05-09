@@ -15,16 +15,16 @@ export async function GET(
 
   const { unitId } = await params
   const url = new URL(request.url)
-  const rtuKey = url.searchParams.get("rtuKey")?.trim()
+  const meterKey = url.searchParams.get("meterKey")?.trim()
 
-  if (!rtuKey) {
-    return NextResponse.json({ error: "Missing rtuKey" }, { status: 400 })
+  if (!meterKey) {
+    return NextResponse.json({ error: "Missing meterKey" }, { status: 400 })
   }
 
   const hourly = await getCustomerEmsCurrentHourlyStats({
     customerId: session.customerId,
     unitId,
-    rtuKey,
+    meterKey,
   })
 
   if (!hourly) {

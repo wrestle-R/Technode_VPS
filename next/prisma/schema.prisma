@@ -38,22 +38,20 @@ model Customer {
 }
 
 model EmsUnit {
-  id                  BigInt    @id @default(autoincrement())
-  unit_id             String    @unique @db.VarChar(64)
-  customer_id         Int?
-  location_label      String?   @db.VarChar(120)
-  latitude            Decimal?  @db.Decimal(10, 6)
-  longitude           Decimal?  @db.Decimal(10, 6)
-  device_type         String?   @db.VarChar(120)
-  last_seen_at        DateTime?
-  topic_path          String?   @db.VarChar(255)
-  unit_field_template Json
-  rtu_overrides       Json
-  scalingFactor       Float     @default(1) @map("scaling_factor")
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
-  customer            Customer? @relation(fields: [customer_id], references: [customer_id], onDelete: SetNull)
-  logs                EmsLog[]
+  id             BigInt    @id @default(autoincrement())
+  unit_id        String    @unique @db.VarChar(64)
+  customer_id    Int?
+  location_label String?   @db.VarChar(120)
+  latitude       Decimal?  @db.Decimal(10, 6)
+  longitude      Decimal?  @db.Decimal(10, 6)
+  device_type    String?   @db.VarChar(120)
+  topic_path     String?   @db.VarChar(255)
+  last_seen_at   DateTime?
+  last_status    String?   @db.VarChar(16)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  customer       Customer? @relation(fields: [customer_id], references: [customer_id], onDelete: SetNull)
+  logs           EmsLog[]
 
   @@index([customer_id])
   @@index([last_seen_at])
@@ -61,12 +59,13 @@ model EmsUnit {
 }
 
 model EmsLog {
-  id              BigInt   @id @default(autoincrement())
-  ems_unit_id     BigInt
+  id               BigInt   @id @default(autoincrement())
+  ems_unit_id      BigInt
+  message_type     String   @db.VarChar(16)
+  status_value     String?  @db.VarChar(16)
   device_timestamp DateTime
-  raw_unit_payload Json
-  raw_rtu_array    Json
-  mapped_rtu_array Json
+  raw_payload      Json
+  meter_payload    Json
   created_at       DateTime @default(now())
   ems_unit         EmsUnit  @relation(fields: [ems_unit_id], references: [id], onDelete: Cascade)
 

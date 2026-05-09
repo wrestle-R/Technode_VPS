@@ -38,7 +38,7 @@ export default async function AdminEmsUnitPage({
       <div>
         <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
         <p className="text-sm text-muted-foreground">
-          Assign the unit, edit coordinates, and control how each slave is mapped and displayed.
+          Assign the unit and maintain location/status metadata.
         </p>
       </div>
 

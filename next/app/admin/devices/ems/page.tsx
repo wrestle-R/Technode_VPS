@@ -47,7 +47,7 @@ function getPageMeta({
 
   return {
     title: "EMS Units",
-    description: "All discovered EMS units. Open a unit to assign it and manage slave mappings.",
+    description: "All discovered EMS units. Open a unit to assign it and manage metadata.",
     refreshHref: "/admin/devices/ems",
   }
 }
@@ -148,7 +148,7 @@ export default async function AdminEmsPage({
                   <th className="px-6 py-4 font-semibold">Unit ID</th>
                   <th className="px-6 py-4 font-semibold">Customer & Location</th>
                   <th className="px-6 py-4 font-semibold text-center">Status</th>
-                  <th className="px-6 py-4 font-semibold text-center">Slaves</th>
+                  <th className="px-6 py-4 font-semibold text-center">Meters</th>
                   <th className="px-6 py-4 text-right font-semibold">Action</th>
                 </tr>
               </thead>
@@ -175,7 +175,7 @@ export default async function AdminEmsPage({
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                        {unit.latestLog?.mappedRtuArray.length ?? 0}
+                        {unit.latestLog?.meterArray.length ?? 0}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">

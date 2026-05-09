@@ -1,12 +1,6 @@
 import { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
-import {
-  mapStoredRtuArray,
-  normalizeFieldTemplate,
-  normalizeRtuOverrides,
-} from "@/lib/ems/service"
-import type { EmsFieldTemplateEntry, MappedRtuEntry } from "@/lib/ems/types"
 
 function asNumber(value: { toString(): string } | null | undefined) {
   return value ? Number(value.toString()) : null
@@ -14,107 +8,35 @@ function asNumber(value: { toString(): string } | null | undefined) {
 
 const UNIT_DETAIL_LOG_LIMIT = 500
 const UNIT_LIST_STATUS_LOOKBACK = 20
-const DATA_FALLBACK_TIMEOUT_MS = 2 * 60 * 1000
-const STATUS_FRESH_TIMEOUT_MS = 2 * 60 * 1000
+const DATA_FRESH_TIMEOUT_MS = 2 * 60 * 1000
 
-function readScalingFactor(unit: Record<string, unknown>) {
-  const raw =
-    typeof unit.scalingFactor === "number"
-      ? unit.scalingFactor
-      : typeof unit.scaling_factor === "number"
-        ? unit.scaling_factor
-        : 1
+type SummaryRange = "24h" | "7d" | "30d"
+type EnergyDailyRange = "3d" | "7d" | "30d"
 
-  return Number.isFinite(raw) ? raw : 1
+type StatSeries = {
+  max: number | null
+  min: number | null
+  avg: number | null
 }
 
-function getPayloadStatus(rawPayload: unknown) {
-  if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
-    return null
-  }
-
-  const payload = rawPayload as { state?: unknown; Status?: unknown }
-  const source = typeof payload.state === "string" ? payload.state : payload.Status
-  if (typeof source !== "string") {
-    return null
-  }
-
-  const normalized = source.trim().toLowerCase()
-  if (normalized === "online" || normalized === "offline") {
-    return normalized
-  }
-
-  return null
+type SummaryStats = {
+  voltage: StatSeries
+  current: StatSeries
+  power: StatSeries
+  powerFactor: StatSeries
 }
 
-function isDataLog(rawRtuArray: unknown) {
-  return Array.isArray(rawRtuArray) && rawRtuArray.length > 0
+type MetricValue = {
+  key: string
+  label: string
+  order: number
+  value: number | null
 }
 
-function isFresh(timestamp: Date | null | undefined, timeoutMs: number) {
-  if (!timestamp) {
-    return false
-  }
-
-  return Date.now() - timestamp.getTime() <= timeoutMs
-}
-
-function findLatestStatusLog<T extends { device_timestamp: Date; raw_unit_payload: unknown }>(logs: T[]) {
-  return logs.find((log) => getPayloadStatus(log.raw_unit_payload) !== null) ?? null
-}
-
-function findLatestDataLog<T extends { device_timestamp: Date; raw_rtu_array: unknown }>(logs: T[]) {
-  return logs.find((log) => isDataLog(log.raw_rtu_array)) ?? null
-}
-
-function inferUnitStatus({
-  latestStatusLog,
-  latestDataLog,
-}: {
-  latestStatusLog: { device_timestamp: Date; raw_unit_payload: unknown } | null
-  latestDataLog: { device_timestamp: Date } | null
-}) {
-  const statusValue = latestStatusLog ? getPayloadStatus(latestStatusLog.raw_unit_payload) : null
-  const statusFresh = latestStatusLog
-    ? isFresh(latestStatusLog.device_timestamp, STATUS_FRESH_TIMEOUT_MS)
-    : false
-  const dataFresh = latestDataLog
-    ? isFresh(latestDataLog.device_timestamp, DATA_FALLBACK_TIMEOUT_MS)
-    : false
-
-  if (statusFresh && statusValue === "offline") {
-    return "Offline"
-  }
-
-  if (statusFresh && statusValue === "online") {
-    return "Online"
-  }
-
-  if (dataFresh) {
-    return "Online"
-  }
-
-  return "Offline"
-}
-
-function inferLogStatus(rawPayload: unknown) {
-  const status = getPayloadStatus(rawPayload)
-  if (status === "online") {
-    return "Online"
-  }
-  if (status === "offline") {
-    return "Offline"
-  }
-
-  return "Unknown"
-}
-
-function getFieldTemplateForRtu({
-  unitTemplate,
-}: {
-  unitTemplate: EmsFieldTemplateEntry[]
-}) {
-  return unitTemplate
+type MeterEntry = {
+  meterKey: string
+  name: string
+  metrics: MetricValue[]
 }
 
 type UnitWithLogs = Prisma.EmsUnitGetPayload<{
@@ -134,23 +56,6 @@ type UnitWithLogs = Prisma.EmsUnitGetPayload<{
   }
 }>
 
-type SummaryRange = "24h" | "7d" | "30d"
-
-type StatSeries = {
-  max: number | null
-  min: number | null
-  avg: number | null
-}
-
-type SummaryStats = {
-  voltage: StatSeries
-  current: StatSeries
-  power: StatSeries
-  powerFactor: StatSeries
-}
-
-type EnergyDailyRange = "3d" | "7d" | "30d"
-
 type EnergyAnalyticsPoint = {
   at: Date
   kwh: number
@@ -159,28 +64,136 @@ type EnergyAnalyticsPoint = {
 type EnergyAnalytics = {
   monthlyCumulative: Array<{ timestamp: string; label: string; kwh: number }>
   dailyConsumption: Array<{ date: string; label: string; consumption: number }>
-  monthlyAverage: Array<{
-    month: string
-    label: string
-    averageConsumption: number
-  }>
+  monthlyAverage: Array<{ month: string; label: string; averageConsumption: number }>
   hourlyConsumption: Array<{ hour: string; label: string; consumption: number }>
   generatedAt: string
 }
 
-function finiteMetric(value: number | null | undefined) {
+type JsonObject = Record<string, unknown>
+
+function isPlainObject(value: unknown): value is JsonObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function finiteMetric(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
-function shouldScaleMetricKey(key: string) {
-  const normalized = key.trim().toUpperCase()
-  if (normalized.startsWith("PF")) {
+function meterEntriesFromPayload(raw: unknown): MeterEntry[] {
+  if (!isPlainObject(raw)) {
+    return []
+  }
+
+  const entries = Object.entries(raw)
+    .filter(([, value]) => isPlainObject(value))
+    .sort(([a], [b]) => {
+      const aNum = Number(a)
+      const bNum = Number(b)
+      const bothNumeric = Number.isFinite(aNum) && Number.isFinite(bNum)
+      if (bothNumeric) {
+        return aNum - bNum
+      }
+      return a.localeCompare(b)
+    })
+
+  return entries.map(([meterKey, meterPayload]) => {
+    const payload = meterPayload as JsonObject
+    const metrics = Object.entries(payload)
+      .filter(([key]) => key !== "name")
+      .map(([key, value], index) => ({
+        key,
+        label: key,
+        order: index,
+        value: finiteMetric(value),
+      }))
+
+    const meterName =
+      typeof payload.name === "string" && payload.name.trim()
+        ? payload.name.trim()
+        : `Meter ${meterKey}`
+
+    return {
+      meterKey,
+      name: meterName,
+      metrics,
+    }
+  })
+}
+
+function findMeter(meters: MeterEntry[], meterKey: string) {
+  return meters.find((meter) => meter.meterKey === meterKey) ?? null
+}
+
+function meterMetricValue(meter: MeterEntry | null, key: string) {
+  if (!meter) {
+    return null
+  }
+  return meter.metrics.find((metric) => metric.key === key)?.value ?? null
+}
+
+function normalizeStatus(raw: string | null | undefined) {
+  if (!raw) {
+    return null
+  }
+
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === "online" || normalized === "offline") {
+    return normalized
+  }
+
+  return null
+}
+
+function isFresh(timestamp: Date | null | undefined) {
+  if (!timestamp) {
     return false
   }
-  if (normalized === "FREQ" || normalized === "FREQUENCY") {
-    return false
+
+  return Date.now() - timestamp.getTime() <= DATA_FRESH_TIMEOUT_MS
+}
+
+function inferUnitStatus(unit: {
+  last_status: string | null
+  last_seen_at: Date | null
+}) {
+  const normalized = normalizeStatus(unit.last_status)
+  if (normalized === "offline") {
+    return "Offline"
   }
-  return true
+
+  if (normalized === "online" && isFresh(unit.last_seen_at)) {
+    return "Online"
+  }
+
+  if (isFresh(unit.last_seen_at)) {
+    return "Online"
+  }
+
+  return "Offline"
+}
+
+function inferLogStatus(statusValue: string | null, rawPayload: unknown) {
+  const fromStatus = normalizeStatus(statusValue)
+  if (fromStatus === "online") {
+    return "Online"
+  }
+  if (fromStatus === "offline") {
+    return "Offline"
+  }
+
+  if (isPlainObject(rawPayload)) {
+    const rawStatus = normalizeStatus(
+      typeof rawPayload.Status === "string" ? rawPayload.Status : null
+    )
+    if (rawStatus === "online") {
+      return "Online"
+    }
+    if (rawStatus === "offline") {
+      return "Offline"
+    }
+  }
+
+  return "Unknown"
 }
 
 function rangeStartDate(range: SummaryRange) {
@@ -234,9 +247,7 @@ function buildMonthlyCumulative(points: EnergyAnalyticsPoint[]) {
     return []
   }
 
-  const sorted = points
-    .slice()
-    .sort((a, b) => a.at.getTime() - b.at.getTime())
+  const sorted = points.slice().sort((a, b) => a.at.getTime() - b.at.getTime())
   const rows: Array<{ timestamp: string; label: string; kwh: number }> = []
   let cumulative = 0
   let previous = sorted[0]?.kwh ?? 0
@@ -355,8 +366,7 @@ function buildMonthlyAverage(points: EnergyAnalyticsPoint[], now: Date) {
     )
     const averageConsumption =
       dayConsumptions.length > 0
-        ? dayConsumptions.reduce((sum, value) => sum + value, 0) /
-          dayConsumptions.length
+        ? dayConsumptions.reduce((sum, value) => sum + value, 0) / dayConsumptions.length
         : 0
 
     return {
@@ -379,10 +389,7 @@ function buildHourlyConsumption(points: EnergyAnalyticsPoint[], now: Date) {
     return {
       key: hourStart.getTime(),
       hour: hourStart.toISOString(),
-      label: hourStart.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      label: hourStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       min: null as number | null,
       max: null as number | null,
     }
@@ -414,105 +421,33 @@ function buildHourlyConsumption(points: EnergyAnalyticsPoint[], now: Date) {
   return hourlySlots.map((slot) => ({
     hour: slot.hour,
     label: slot.label,
-    consumption:
-      slot.min != null && slot.max != null ? Math.max(slot.max - slot.min, 0) : 0,
+    consumption: slot.min != null && slot.max != null ? Math.max(slot.max - slot.min, 0) : 0,
   }))
 }
 
-function formatMappedArray(
-  rawRtuArray: unknown,
-  unitTemplate: EmsFieldTemplateEntry[],
-  overrides: ReturnType<typeof normalizeRtuOverrides>,
-  scalingFactor: number = 1
-) {
-  return mapStoredRtuArray({
-    rawRtuArray,
-    unitTemplate,
-    overrides,
-  }).map((entry) => {
-    const rtu = entry as MappedRtuEntry
-    const rtuKey = rtu.id != null ? String(rtu.id) : (rtu.slave ?? "unknown")
-    const fieldTemplate = getFieldTemplateForRtu({ unitTemplate })
-    const nickname =
-      overrides[rtuKey]?.nickname?.trim() ||
-      rtu.nickname ||
-      rtu.slave ||
-      `RTU-${rtu.id ?? "unknown"}`
-    const orderedMetrics = Object.entries(rtu.metrics ?? {})
-      .map(([key, value]) => {
-        const field = fieldTemplate.find((item) => item.key === key)
-        const numericValue =
-          typeof value === "number"
-            ? shouldScaleMetricKey(key)
-              ? value * scalingFactor
-              : value
-            : value
-        return {
-          key,
-          label: field?.label ?? key,
-          order: field?.order ?? Number.MAX_SAFE_INTEGER,
-          value: numericValue,
-        }
-      })
-      .sort((a, b) => a.order - b.order)
-
-    return {
-      rtuKey,
-      id: rtu.id,
-      slave: rtu.slave,
-      nickname,
-      res: rtu.res,
-      datalen: rtu.datalen,
-      fieldTemplate,
-      metrics: orderedMetrics,
-    }
-  })
-}
-
 function formatUnit(unit: UnitWithLogs) {
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-  const latestStatusLog = findLatestStatusLog(unit.logs)
-  const latestDataLog = findLatestDataLog(unit.logs)
-  const mappedRtus = latestDataLog
-    ? formatMappedArray(
-        latestDataLog.raw_rtu_array,
-        unitTemplate,
-        overrides,
-        scalingFactor
-      )
-    : []
+  const latestDataLog = unit.logs.find((log) => log.message_type === "data") ?? null
+  const latestMeters = latestDataLog ? meterEntriesFromPayload(latestDataLog.meter_payload) : []
 
   return {
     id: unit.id.toString(),
     unitId: unit.unit_id,
     customerId: unit.customer_id,
     customerName:
-      unit.customer?.company.name ??
-      unit.customer?.customer_representative ??
-      null,
+      unit.customer?.company.name ?? unit.customer?.customer_representative ?? null,
     locationLabel: unit.location_label,
     latitude: asNumber(unit.latitude),
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
-    lastSeenAt: latestDataLog?.device_timestamp.toISOString() ?? unit.last_seen_at?.toISOString() ?? null,
+    lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
     topicPath: unit.topic_path,
-    status: inferUnitStatus({
-      latestStatusLog,
-      latestDataLog,
-    }),
-    unitFieldTemplate: unitTemplate,
-    rtuOverrides: overrides,
-    scalingFactor,
+    status: inferUnitStatus(unit),
     latestLog: latestDataLog
       ? {
           id: latestDataLog.id.toString(),
           deviceTimestamp: latestDataLog.device_timestamp.toISOString(),
-          rawUnitPayload: latestDataLog.raw_unit_payload,
-          mappedRtuArray: mappedRtus,
+          rawPayload: latestDataLog.raw_payload,
+          meterArray: latestMeters,
         }
       : null,
   }
@@ -526,14 +461,11 @@ export async function getAdminEmsUnits() {
         select: {
           customer_id: true,
           customer_representative: true,
-          company: {
-            select: {
-              name: true,
-            },
-          },
+          company: { select: { name: true } },
         },
       },
       logs: {
+        where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
         take: UNIT_LIST_STATUS_LOOKBACK,
       },
@@ -572,14 +504,11 @@ export async function getAdminEmsUnitsFiltered({
         select: {
           customer_id: true,
           customer_representative: true,
-          company: {
-            select: {
-              name: true,
-            },
-          },
+          company: { select: { name: true } },
         },
       },
       logs: {
+        where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
         take: UNIT_LIST_STATUS_LOOKBACK,
       },
@@ -592,14 +521,8 @@ export async function getAdminEmsUnitsFiltered({
 export async function getAdminEmsCustomersWithUnits() {
   const grouped = await prisma.emsUnit.groupBy({
     by: ["customer_id"],
-    where: {
-      customer_id: {
-        not: null,
-      },
-    },
-    _count: {
-      _all: true,
-    },
+    where: { customer_id: { not: null } },
+    _count: { _all: true },
   })
 
   const customerIds = grouped
@@ -611,30 +534,19 @@ export async function getAdminEmsCustomersWithUnits() {
   }
 
   const customers = await prisma.customer.findMany({
-    where: {
-      customer_id: {
-        in: customerIds,
-      },
-    },
+    where: { customer_id: { in: customerIds } },
     select: {
       customer_id: true,
       customer_representative: true,
-      company: {
-        select: {
-          name: true,
-        },
-      },
+      company: { select: { name: true } },
     },
-    orderBy: {
-      customer_id: "asc",
-    },
+    orderBy: { customer_id: "asc" },
   })
 
   const counts = new Map(
     grouped
       .filter(
-        (row): row is typeof row & { customer_id: number } =>
-          row.customer_id != null
+        (row): row is typeof row & { customer_id: number } => row.customer_id != null
       )
       .map((row) => [row.customer_id, row._count._all])
   )
@@ -656,14 +568,11 @@ export async function getAdminEmsUnit(unitId: string) {
         select: {
           customer_id: true,
           customer_representative: true,
-          company: {
-            select: {
-              name: true,
-            },
-          },
+          company: { select: { name: true } },
         },
       },
       logs: {
+        where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
         take: UNIT_DETAIL_LOG_LIMIT,
       },
@@ -675,43 +584,25 @@ export async function getAdminEmsUnit(unitId: string) {
   }
 
   const formatted = formatUnit(unit)
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-  const knownRtuMap = new Map<
-    string,
-    ReturnType<typeof formatMappedArray>[number]
-  >()
+  const knownMeterMap = new Map<string, MeterEntry>()
 
   for (const log of unit.logs) {
-    for (const rtu of formatMappedArray(
-      log.raw_rtu_array,
-      unitTemplate,
-      overrides,
-      scalingFactor
-    )) {
-      if (!knownRtuMap.has(rtu.rtuKey)) {
-        knownRtuMap.set(rtu.rtuKey, rtu)
+    for (const meter of meterEntriesFromPayload(log.meter_payload)) {
+      if (!knownMeterMap.has(meter.meterKey)) {
+        knownMeterMap.set(meter.meterKey, meter)
       }
     }
   }
 
   return {
     ...formatted,
-    logs: unit.logs.map((log: (typeof unit.logs)[number]) => ({
+    logs: unit.logs.map((log) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
-      status: inferLogStatus(log.raw_unit_payload),
-      rtus: formatMappedArray(
-        log.raw_rtu_array,
-        unitTemplate,
-        overrides,
-        scalingFactor
-      ),
+      status: inferLogStatus(log.status_value, log.raw_payload),
+      meters: meterEntriesFromPayload(log.meter_payload),
     })),
-    rtus: Array.from(knownRtuMap.values()),
+    meters: Array.from(knownMeterMap.values()),
   }
 }
 
@@ -721,42 +612,26 @@ export async function getCustomerEmsUnits(customerId: number) {
     orderBy: [{ last_seen_at: "desc" }, { unit_id: "asc" }],
     include: {
       logs: {
+        where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
-        take: UNIT_LIST_STATUS_LOOKBACK,
+        take: 1,
       },
     },
   })
 
-  return units.map((unit: (typeof units)[number]) => {
-    const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-    const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-    const scalingFactor = readScalingFactor(
-      unit as unknown as Record<string, unknown>
-    )
-    const latestStatusLog = findLatestStatusLog(unit.logs)
-    const latestDataLog = findLatestDataLog(unit.logs)
-    const mappedRtus = latestDataLog
-      ? formatMappedArray(
-          latestDataLog.raw_rtu_array,
-          unitTemplate,
-          overrides,
-          scalingFactor
-        )
-      : []
+  return units.map((unit) => {
+    const latestMeters = meterEntriesFromPayload(unit.logs[0]?.meter_payload)
 
     return {
       id: unit.id.toString(),
       unitId: unit.unit_id,
-      status: inferUnitStatus({ latestStatusLog, latestDataLog }),
+      status: inferUnitStatus(unit),
       locationLabel: unit.location_label,
       latitude: asNumber(unit.latitude),
       longitude: asNumber(unit.longitude),
       deviceType: unit.device_type,
-      lastSeenAt:
-        latestDataLog?.device_timestamp.toISOString() ??
-        unit.last_seen_at?.toISOString() ??
-        null,
-      slaveCount: mappedRtus.length,
+      lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
+      meterCount: latestMeters.length,
     }
   })
 }
@@ -769,12 +644,10 @@ export async function getCustomerEmsUnitDetail({
   unitId: string
 }) {
   const unit = await prisma.emsUnit.findFirst({
-    where: {
-      unit_id: unitId,
-      customer_id: customerId,
-    },
+    where: { unit_id: unitId, customer_id: customerId },
     include: {
       logs: {
+        where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
         take: UNIT_DETAIL_LOG_LIMIT,
       },
@@ -785,156 +658,117 @@ export async function getCustomerEmsUnitDetail({
     return null
   }
 
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-  const latestStatusLog = findLatestStatusLog(unit.logs)
-  const latestDataLog = findLatestDataLog(unit.logs)
-  const sortedDataLogs = unit.logs
-    .filter((log) => isDataLog(log.raw_rtu_array))
-    .sort((a, b) => {
-      if (a.id === b.id) {
-        return 0
-      }
-      return a.id > b.id ? -1 : 1
-    })
+  const latestDataLog = unit.logs[0] ?? null
 
   return {
     id: unit.id.toString(),
     unitId: unit.unit_id,
-    status: inferUnitStatus({ latestStatusLog, latestDataLog }),
+    status: inferUnitStatus(unit),
     locationLabel: unit.location_label,
     latitude: asNumber(unit.latitude),
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
-    lastSeenAt:
-      latestDataLog?.device_timestamp.toISOString() ??
-      unit.last_seen_at?.toISOString() ??
-      null,
-    latestRtus: latestDataLog
-      ? formatMappedArray(
-          latestDataLog.raw_rtu_array,
-          unitTemplate,
-          overrides,
-          scalingFactor
-        )
-      : [],
-    logs: sortedDataLogs.map((log: (typeof unit.logs)[number]) => ({
+    lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
+    latestMeters: latestDataLog ? meterEntriesFromPayload(latestDataLog.meter_payload) : [],
+    logs: unit.logs.map((log) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
-      status: inferLogStatus(log.raw_unit_payload),
-      rtus: formatMappedArray(
-        log.raw_rtu_array,
-        unitTemplate,
-        overrides,
-        scalingFactor
-      ),
+      status: inferLogStatus(log.status_value, log.raw_payload),
+      meters: meterEntriesFromPayload(log.meter_payload),
     })),
   }
 }
 
-export async function getCustomerEmsSummaryStats({
+async function getCustomerDataLogs({
   customerId,
   unitId,
-  rtuKey,
-  range,
+  startAt,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
-  range: SummaryRange
-}): Promise<SummaryStats | null> {
+  startAt?: Date
+}) {
   const unit = await prisma.emsUnit.findFirst({
-    where: {
-      unit_id: unitId,
-      customer_id: customerId,
-    },
-    select: {
-      id: true,
-      unit_field_template: true,
-      rtu_overrides: true,
-      scalingFactor: true,
-    },
+    where: { unit_id: unitId, customer_id: customerId },
+    select: { id: true },
   })
 
   if (!unit) {
     return null
   }
 
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-  const startAt = rangeStartDate(range)
-
   const logs = await prisma.emsLog.findMany({
     where: {
       ems_unit_id: unit.id,
-      device_timestamp: {
-        gte: startAt,
-      },
+      message_type: "data",
+      ...(startAt ? { device_timestamp: { gte: startAt } } : {}),
     },
     orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
     select: {
-      raw_rtu_array: true,
+      id: true,
+      device_timestamp: true,
+      meter_payload: true,
+      raw_payload: true,
+      status_value: true,
     },
   })
+
+  return { unitId: unit.id, logs }
+}
+
+export async function getCustomerEmsSummaryStats({
+  customerId,
+  unitId,
+  meterKey,
+  range,
+}: {
+  customerId: number
+  unitId: string
+  meterKey: string
+  range: SummaryRange
+}): Promise<SummaryStats | null> {
+  const data = await getCustomerDataLogs({
+    customerId,
+    unitId,
+    startAt: rangeStartDate(range),
+  })
+
+  if (!data) {
+    return null
+  }
 
   const voltageRows: number[] = []
   const currentRows: number[] = []
   const powerRows: number[] = []
   const powerFactorRows: number[] = []
 
-  for (const log of logs) {
-    const mappedRtus = formatMappedArray(
-      log.raw_rtu_array,
-      unitTemplate,
-      overrides,
-      scalingFactor
-    )
-    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
-    if (!rtu) {
+  for (const log of data.logs) {
+    const meter = findMeter(meterEntriesFromPayload(log.meter_payload), meterKey)
+    if (!meter) {
       continue
     }
 
-    const metricMap = new Map(
-      rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
-    )
+    const vry = meterMetricValue(meter, "VRY")
+    const vyb = meterMetricValue(meter, "VYB")
+    const vbr = meterMetricValue(meter, "VBR")
+    const ir = meterMetricValue(meter, "IR")
+    const iy = meterMetricValue(meter, "IY")
+    const ib = meterMetricValue(meter, "IB")
+    const kwr = meterMetricValue(meter, "KW-R")
+    const kwy = meterMetricValue(meter, "KW-Y")
+    const kwb = meterMetricValue(meter, "KW-B")
+    const pfr = meterMetricValue(meter, "PF-R")
+    const pfy = meterMetricValue(meter, "PF-Y")
+    const pfb = meterMetricValue(meter, "PF-B")
 
-    const vry = metricMap.get("VRY")
-    const vyb = metricMap.get("VYB")
-    const vbr = metricMap.get("VBR")
-    const ir = metricMap.get("IR")
-    const iy = metricMap.get("IY")
-    const ib = metricMap.get("IB")
-    const kwr = metricMap.get("KW-R")
-    const kwy = metricMap.get("KW-Y")
-    const kwb = metricMap.get("KW-B")
-    const pfr = metricMap.get("PF-R")
-    const pfy = metricMap.get("PF-Y")
-    const pfb = metricMap.get("PF-B")
-
-    const voltageValues = [vry, vyb, vbr].filter(
-      (value): value is number => value != null
-    )
+    const voltageValues = [vry, vyb, vbr].filter((value): value is number => value != null)
     if (voltageValues.length > 0) {
-      voltageRows.push(
-        voltageValues.reduce((sum, value) => sum + value, 0) /
-          voltageValues.length
-      )
+      voltageRows.push(voltageValues.reduce((sum, value) => sum + value, 0) / voltageValues.length)
     }
 
-    const currentValues = [ir, iy, ib].filter(
-      (value): value is number => value != null
-    )
+    const currentValues = [ir, iy, ib].filter((value): value is number => value != null)
     if (currentValues.length > 0) {
-      currentRows.push(
-        currentValues.reduce((sum, value) => sum + value, 0) /
-          currentValues.length
-      )
+      currentRows.push(currentValues.reduce((sum, value) => sum + value, 0) / currentValues.length)
     }
 
     if (kwr != null && kwy != null && kwb != null) {
@@ -946,8 +780,7 @@ export async function getCustomerEmsSummaryStats({
     )
     if (powerFactorValues.length > 0) {
       powerFactorRows.push(
-        powerFactorValues.reduce((sum, value) => sum + value, 0) /
-          powerFactorValues.length
+        powerFactorValues.reduce((sum, value) => sum + value, 0) / powerFactorValues.length
       )
     }
   }
@@ -963,54 +796,22 @@ export async function getCustomerEmsSummaryStats({
 export async function getCustomerEmsCurrentHourlyStats({
   customerId,
   unitId,
-  rtuKey,
+  meterKey,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
+  meterKey: string
 }) {
-  const unit = await prisma.emsUnit.findFirst({
-    where: {
-      unit_id: unitId,
-      customer_id: customerId,
-    },
-    select: {
-      id: true,
-      unit_field_template: true,
-      rtu_overrides: true,
-      scalingFactor: true,
-    },
-  })
-
-  if (!unit) {
-    return null
-  }
-
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-
   const now = new Date()
   const currentHour = new Date(now)
   currentHour.setMinutes(0, 0, 0)
   const startAt = new Date(currentHour)
   startAt.setHours(startAt.getHours() - 23)
 
-  const logs = await prisma.emsLog.findMany({
-    where: {
-      ems_unit_id: unit.id,
-      device_timestamp: {
-        gte: startAt,
-      },
-    },
-    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
-    select: {
-      device_timestamp: true,
-      raw_rtu_array: true,
-    },
-  })
+  const data = await getCustomerDataLogs({ customerId, unitId, startAt })
+  if (!data) {
+    return null
+  }
 
   const hourlySlots = Array.from({ length: 24 }, (_, index) => {
     const hourStart = new Date(startAt)
@@ -1018,38 +819,23 @@ export async function getCustomerEmsCurrentHourlyStats({
     return {
       key: hourStart.getTime(),
       timestamp: hourStart.toISOString(),
-      hour: hourStart.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      hour: hourStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       values: [] as number[],
     }
   })
 
   const slotByTime = new Map(hourlySlots.map((slot) => [slot.key, slot]))
 
-  for (const log of logs) {
-    const mappedRtus = formatMappedArray(
-      log.raw_rtu_array,
-      unitTemplate,
-      overrides,
-      scalingFactor
-    )
-
-    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
-    if (!rtu) {
+  for (const log of data.logs) {
+    const meter = findMeter(meterEntriesFromPayload(log.meter_payload), meterKey)
+    if (!meter) {
       continue
     }
 
-    const metricMap = new Map(
-      rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
-    )
-    const ir = metricMap.get("IR")
-    const iy = metricMap.get("IY")
-    const ib = metricMap.get("IB")
-    const available = [ir, iy, ib].filter(
-      (value): value is number => value != null
-    )
+    const ir = meterMetricValue(meter, "IR")
+    const iy = meterMetricValue(meter, "IY")
+    const ib = meterMetricValue(meter, "IB")
+    const available = [ir, iy, ib].filter((value): value is number => value != null)
 
     if (available.length === 0) {
       continue
@@ -1058,13 +844,11 @@ export async function getCustomerEmsCurrentHourlyStats({
     const hourStart = new Date(log.device_timestamp)
     hourStart.setMinutes(0, 0, 0)
     const slot = slotByTime.get(hourStart.getTime())
-
     if (!slot) {
       continue
     }
 
-    const averageCurrent =
-      available.reduce((sum, value) => sum + value, 0) / available.length
+    const averageCurrent = available.reduce((sum, value) => sum + value, 0) / available.length
     slot.values.push(averageCurrent)
   }
 
@@ -1074,8 +858,7 @@ export async function getCustomerEmsCurrentHourlyStats({
       hour: slot.hour,
       averageCurrent:
         slot.values.length > 0
-          ? slot.values.reduce((sum, value) => sum + value, 0) /
-            slot.values.length
+          ? slot.values.reduce((sum, value) => sum + value, 0) / slot.values.length
           : null,
     })),
     computedAt: new Date().toISOString(),
@@ -1085,54 +868,22 @@ export async function getCustomerEmsCurrentHourlyStats({
 export async function getCustomerEmsVoltageHourlyStats({
   customerId,
   unitId,
-  rtuKey,
+  meterKey,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
+  meterKey: string
 }) {
-  const unit = await prisma.emsUnit.findFirst({
-    where: {
-      unit_id: unitId,
-      customer_id: customerId,
-    },
-    select: {
-      id: true,
-      unit_field_template: true,
-      rtu_overrides: true,
-      scalingFactor: true,
-    },
-  })
-
-  if (!unit) {
-    return null
-  }
-
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-
   const now = new Date()
   const currentHour = new Date(now)
   currentHour.setMinutes(0, 0, 0)
   const startAt = new Date(currentHour)
   startAt.setHours(startAt.getHours() - 11)
 
-  const logs = await prisma.emsLog.findMany({
-    where: {
-      ems_unit_id: unit.id,
-      device_timestamp: {
-        gte: startAt,
-      },
-    },
-    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
-    select: {
-      device_timestamp: true,
-      raw_rtu_array: true,
-    },
-  })
+  const data = await getCustomerDataLogs({ customerId, unitId, startAt })
+  if (!data) {
+    return null
+  }
 
   const hourlySlots = Array.from({ length: 12 }, (_, index) => {
     const hourStart = new Date(startAt)
@@ -1140,10 +891,7 @@ export async function getCustomerEmsVoltageHourlyStats({
     return {
       key: hourStart.getTime(),
       timestamp: hourStart.toISOString(),
-      hour: hourStart.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      hour: hourStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       llValues: [] as number[],
       lnValues: [] as number[],
     }
@@ -1151,35 +899,21 @@ export async function getCustomerEmsVoltageHourlyStats({
 
   const slotByTime = new Map(hourlySlots.map((slot) => [slot.key, slot]))
 
-  for (const log of logs) {
-    const mappedRtus = formatMappedArray(
-      log.raw_rtu_array,
-      unitTemplate,
-      overrides,
-      scalingFactor
-    )
-
-    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
-    if (!rtu) {
+  for (const log of data.logs) {
+    const meter = findMeter(meterEntriesFromPayload(log.meter_payload), meterKey)
+    if (!meter) {
       continue
     }
 
-    const metricMap = new Map(
-      rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
-    )
-    const vry = metricMap.get("VRY")
-    const vyb = metricMap.get("VYB")
-    const vbr = metricMap.get("VBR")
-    const vrn = metricMap.get("VRN")
-    const vyn = metricMap.get("VYN")
-    const vbn = metricMap.get("VBN")
+    const vry = meterMetricValue(meter, "VRY")
+    const vyb = meterMetricValue(meter, "VYB")
+    const vbr = meterMetricValue(meter, "VBR")
+    const vrn = meterMetricValue(meter, "VRN")
+    const vyn = meterMetricValue(meter, "VYN")
+    const vbn = meterMetricValue(meter, "VBN")
 
-    const llValues = [vry, vyb, vbr].filter(
-      (value): value is number => value != null
-    )
-    const lnValues = [vrn, vyn, vbn].filter(
-      (value): value is number => value != null
-    )
+    const llValues = [vry, vyb, vbr].filter((value): value is number => value != null)
+    const lnValues = [vrn, vyn, vbn].filter((value): value is number => value != null)
 
     if (llValues.length === 0 && lnValues.length === 0) {
       continue
@@ -1188,21 +922,16 @@ export async function getCustomerEmsVoltageHourlyStats({
     const hourStart = new Date(log.device_timestamp)
     hourStart.setMinutes(0, 0, 0)
     const slot = slotByTime.get(hourStart.getTime())
-
     if (!slot) {
       continue
     }
 
     if (llValues.length > 0) {
-      slot.llValues.push(
-        llValues.reduce((sum, value) => sum + value, 0) / llValues.length
-      )
+      slot.llValues.push(llValues.reduce((sum, value) => sum + value, 0) / llValues.length)
     }
 
     if (lnValues.length > 0) {
-      slot.lnValues.push(
-        lnValues.reduce((sum, value) => sum + value, 0) / lnValues.length
-      )
+      slot.lnValues.push(lnValues.reduce((sum, value) => sum + value, 0) / lnValues.length)
     }
   }
 
@@ -1212,13 +941,11 @@ export async function getCustomerEmsVoltageHourlyStats({
       hour: slot.hour,
       averageVoltageLL:
         slot.llValues.length > 0
-          ? slot.llValues.reduce((sum, value) => sum + value, 0) /
-            slot.llValues.length
+          ? slot.llValues.reduce((sum, value) => sum + value, 0) / slot.llValues.length
           : null,
       averageVoltageLN:
         slot.lnValues.length > 0
-          ? slot.lnValues.reduce((sum, value) => sum + value, 0) /
-            slot.lnValues.length
+          ? slot.lnValues.reduce((sum, value) => sum + value, 0) / slot.lnValues.length
           : null,
     })),
     computedAt: new Date().toISOString(),
@@ -1228,31 +955,14 @@ export async function getCustomerEmsVoltageHourlyStats({
 export async function getCustomerEmsEnergyAnalytics({
   customerId,
   unitId,
-  rtuKey,
+  meterKey,
   dailyRange,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
+  meterKey: string
   dailyRange: EnergyDailyRange
 }): Promise<EnergyAnalytics | null> {
-  const unit = await prisma.emsUnit.findFirst({
-    where: {
-      unit_id: unitId,
-      customer_id: customerId,
-    },
-    select: {
-      id: true,
-      unit_field_template: true,
-      rtu_overrides: true,
-      scalingFactor: true,
-    },
-  })
-
-  if (!unit) {
-    return null
-  }
-
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const totalDays = daysFromRange(dailyRange)
@@ -1265,42 +975,19 @@ export async function getCustomerEmsEnergyAnalytics({
     Math.min(monthStart.getTime(), dailyStart.getTime(), threeMonthStart.getTime())
   )
 
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-
-  const logs = await prisma.emsLog.findMany({
-    where: {
-      ems_unit_id: unit.id,
-      device_timestamp: {
-        gte: earliestStart,
-      },
-    },
-    orderBy: [{ device_timestamp: "asc" }, { created_at: "asc" }],
-    select: {
-      device_timestamp: true,
-      raw_rtu_array: true,
-    },
-  })
+  const data = await getCustomerDataLogs({ customerId, unitId, startAt: earliestStart })
+  if (!data) {
+    return null
+  }
 
   const readings: EnergyAnalyticsPoint[] = []
-  for (const log of logs) {
-    const mappedRtus = formatMappedArray(
-      log.raw_rtu_array,
-      unitTemplate,
-      overrides,
-      scalingFactor
-    )
-    const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
-    if (!rtu) {
+  for (const log of data.logs) {
+    const meter = findMeter(meterEntriesFromPayload(log.meter_payload), meterKey)
+    if (!meter) {
       continue
     }
 
-    const kwh = finiteMetric(
-      rtu.metrics.find((metric) => metric.key === "Kwh")?.value
-    )
+    const kwh = meterMetricValue(meter, "Kwh")
     if (kwh == null) {
       continue
     }
@@ -1308,9 +995,7 @@ export async function getCustomerEmsEnergyAnalytics({
     readings.push({ at: new Date(log.device_timestamp), kwh })
   }
 
-  const monthlyReadings = readings.filter(
-    (point) => point.at.getTime() >= monthStart.getTime()
-  )
+  const monthlyReadings = readings.filter((point) => point.at.getTime() >= monthStart.getTime())
 
   return {
     monthlyCumulative: buildMonthlyCumulative(monthlyReadings),
@@ -1345,17 +1030,8 @@ async function getCustomerUnitForLogs({
   unitId: string
 }) {
   return prisma.emsUnit.findFirst({
-    where: {
-      unit_id: unitId,
-      customer_id: customerId,
-    },
-    select: {
-      id: true,
-      unit_id: true,
-      unit_field_template: true,
-      rtu_overrides: true,
-      scalingFactor: true,
-    },
+    where: { unit_id: unitId, customer_id: customerId },
+    select: { id: true, unit_id: true },
   })
 }
 
@@ -1364,7 +1040,7 @@ export type CustomerEmsLogsPage = {
     id: string
     deviceTimestamp: string
     status: string
-    rtus: ReturnType<typeof formatMappedArray>
+    meters: MeterEntry[]
   }>
   nextCursor: string | null
   hasMore: boolean
@@ -1396,19 +1072,14 @@ export async function getCustomerEmsLogsPage({
     }
   }
 
-  const unitTemplate = normalizeFieldTemplate(unit.unit_field_template)
-  const overrides = normalizeRtuOverrides(unit.rtu_overrides)
-  const scalingFactor = readScalingFactor(
-    unit as unknown as Record<string, unknown>
-  )
-
   const targetCount = normalizedLimit + 1
   const batchSize = Math.min(Math.max(normalizedLimit * 3, 100), 500)
   const dataRows: Array<{
     id: bigint
     device_timestamp: Date
-    raw_unit_payload: Prisma.JsonValue
-    raw_rtu_array: Prisma.JsonValue
+    status_value: string | null
+    raw_payload: Prisma.JsonValue
+    meter_payload: Prisma.JsonValue
   }> = []
   let scanCursor = cursorId
 
@@ -1416,6 +1087,7 @@ export async function getCustomerEmsLogsPage({
     const rows = await prisma.emsLog.findMany({
       where: {
         ems_unit_id: unit.id,
+        message_type: "data",
         ...(scanCursor ? { id: { lt: scanCursor } } : {}),
       },
       orderBy: [{ id: "desc" }],
@@ -1423,8 +1095,9 @@ export async function getCustomerEmsLogsPage({
       select: {
         id: true,
         device_timestamp: true,
-        raw_unit_payload: true,
-        raw_rtu_array: true,
+        status_value: true,
+        raw_payload: true,
+        meter_payload: true,
       },
     })
 
@@ -1433,7 +1106,7 @@ export async function getCustomerEmsLogsPage({
     }
 
     for (const row of rows) {
-      if (isDataLog(row.raw_rtu_array)) {
+      if (meterEntriesFromPayload(row.meter_payload).length > 0) {
         dataRows.push(row)
         if (dataRows.length >= targetCount) {
           break
@@ -1449,24 +1122,16 @@ export async function getCustomerEmsLogsPage({
 
   const hasMore = dataRows.length > normalizedLimit
   const pageRows = hasMore ? dataRows.slice(0, normalizedLimit) : dataRows
-  const logs = pageRows.map((log) => ({
-    id: log.id.toString(),
-    deviceTimestamp: log.device_timestamp.toISOString(),
-    status: inferLogStatus(log.raw_unit_payload),
-    rtus: formatMappedArray(
-      log.raw_rtu_array,
-      unitTemplate,
-      overrides,
-      scalingFactor
-    ),
-  }))
 
   return {
-    logs,
+    logs: pageRows.map((log) => ({
+      id: log.id.toString(),
+      deviceTimestamp: log.device_timestamp.toISOString(),
+      status: inferLogStatus(log.status_value, log.raw_payload),
+      meters: meterEntriesFromPayload(log.meter_payload),
+    })),
     nextCursor:
-      hasMore && pageRows.length > 0
-        ? pageRows[pageRows.length - 1]?.id.toString() ?? null
-        : null,
+      hasMore && pageRows.length > 0 ? pageRows[pageRows.length - 1]?.id.toString() ?? null : null,
     hasMore,
   }
 }
@@ -1494,103 +1159,62 @@ export type CustomerRawCsvRow = {
   frequency: number | null
 }
 
-function metricFromMap(map: Map<string, number | null>, key: string) {
-  const value = map.get(key)
-  return typeof value === "number" && Number.isFinite(value) ? value : null
-}
-
 function mapRawCsvRow({
   log,
-  unitTemplate,
-  overrides,
-  scalingFactor,
-  rtuKey,
+  meterKey,
 }: {
   log: {
     device_timestamp: Date
-    raw_rtu_array: Prisma.JsonValue
+    meter_payload: Prisma.JsonValue
   }
-  unitTemplate: EmsFieldTemplateEntry[]
-  overrides: ReturnType<typeof normalizeRtuOverrides>
-  scalingFactor: number
-  rtuKey: string
+  meterKey: string
 }) {
-  const mappedRtus = formatMappedArray(
-    log.raw_rtu_array,
-    unitTemplate,
-    overrides,
-    scalingFactor
-  )
-  const rtu = mappedRtus.find((entry) => entry.rtuKey === rtuKey)
-  if (!rtu) {
+  const meter = findMeter(meterEntriesFromPayload(log.meter_payload), meterKey)
+  if (!meter) {
     return null
   }
-
-  const metricMap = new Map(
-    rtu.metrics.map((metric) => [metric.key, finiteMetric(metric.value)])
-  )
 
   return {
     timestamp: log.device_timestamp.toISOString(),
-    kwh: metricFromMap(metricMap, "Kwh"),
-    kvah: metricFromMap(metricMap, "KvAh"),
-    kvarh: metricFromMap(metricMap, "KvArh"),
-    voltageRn: metricFromMap(metricMap, "VRN"),
-    voltageYn: metricFromMap(metricMap, "VYN"),
-    voltageBn: metricFromMap(metricMap, "VBN"),
-    voltageRy: metricFromMap(metricMap, "VRY"),
-    voltageYb: metricFromMap(metricMap, "VYB"),
-    voltageBr: metricFromMap(metricMap, "VBR"),
-    currentR: metricFromMap(metricMap, "IR"),
-    currentY: metricFromMap(metricMap, "IY"),
-    currentB: metricFromMap(metricMap, "IB"),
-    kwR: metricFromMap(metricMap, "KW-R"),
-    kwY: metricFromMap(metricMap, "KW-Y"),
-    kwB: metricFromMap(metricMap, "KW-B"),
-    pfR: metricFromMap(metricMap, "PF-R"),
-    pfY: metricFromMap(metricMap, "PF-Y"),
-    pfB: metricFromMap(metricMap, "PF-B"),
-    frequency: metricFromMap(metricMap, "Freq"),
+    kwh: meterMetricValue(meter, "Kwh"),
+    kvah: meterMetricValue(meter, "KvAh"),
+    kvarh: meterMetricValue(meter, "KvArh"),
+    voltageRn: meterMetricValue(meter, "VRN"),
+    voltageYn: meterMetricValue(meter, "VYN"),
+    voltageBn: meterMetricValue(meter, "VBN"),
+    voltageRy: meterMetricValue(meter, "VRY"),
+    voltageYb: meterMetricValue(meter, "VYB"),
+    voltageBr: meterMetricValue(meter, "VBR"),
+    currentR: meterMetricValue(meter, "IR"),
+    currentY: meterMetricValue(meter, "IY"),
+    currentB: meterMetricValue(meter, "IB"),
+    kwR: meterMetricValue(meter, "KW-R"),
+    kwY: meterMetricValue(meter, "KW-Y"),
+    kwB: meterMetricValue(meter, "KW-B"),
+    pfR: meterMetricValue(meter, "PF-R"),
+    pfY: meterMetricValue(meter, "PF-Y"),
+    pfB: meterMetricValue(meter, "PF-B"),
+    frequency: meterMetricValue(meter, "Freq"),
   } satisfies CustomerRawCsvRow
-}
-
-async function getCustomerRawRowsIteratorContext({
-  customerId,
-  unitId,
-}: {
-  customerId: number
-  unitId: string
-}) {
-  const unit = await getCustomerUnitForLogs({ customerId, unitId })
-  if (!unit) {
-    return null
-  }
-
-  return {
-    unit,
-    unitTemplate: normalizeFieldTemplate(unit.unit_field_template),
-    overrides: normalizeRtuOverrides(unit.rtu_overrides),
-    scalingFactor: readScalingFactor(unit as unknown as Record<string, unknown>),
-  }
 }
 
 export async function countCustomerEmsRawRows({
   customerId,
   unitId,
-  rtuKey,
+  meterKey,
   startAt,
   endAt,
   batchSize = 2_000,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
+  meterKey: string
   startAt?: Date
   endAt?: Date
   batchSize?: number
 }): Promise<number | null> {
-  const context = await getCustomerRawRowsIteratorContext({ customerId, unitId })
-  if (!context) {
+  const unit = await getCustomerUnitForLogs({ customerId, unitId })
+  if (!unit) {
     return null
   }
 
@@ -1600,22 +1224,23 @@ export async function countCustomerEmsRawRows({
   let count = 0
 
   while (true) {
-    const whereClause: Record<string, unknown> = {
-      ems_unit_id: context.unit.id,
-      ...(deviceTimestampFilter
-        ? { device_timestamp: deviceTimestampFilter }
-        : {}),
-      ...(cursorId ? { id: { gt: cursorId } } : {}),
-    }
-
-    const rows = await prisma.emsLog.findMany({
-      where: whereClause,
+    const rows: Array<{
+      id: bigint
+      device_timestamp: Date
+      meter_payload: Prisma.JsonValue
+    }> = await prisma.emsLog.findMany({
+      where: {
+        ems_unit_id: unit.id,
+        message_type: "data",
+        ...(deviceTimestampFilter ? { device_timestamp: deviceTimestampFilter } : {}),
+        ...(cursorId ? { id: { gt: cursorId } } : {}),
+      },
       orderBy: [{ id: "asc" }],
       take: safeBatchSize,
       select: {
         id: true,
         device_timestamp: true,
-        raw_rtu_array: true,
+        meter_payload: true,
       },
     })
 
@@ -1624,13 +1249,7 @@ export async function countCustomerEmsRawRows({
     }
 
     for (const log of rows) {
-      const row = mapRawCsvRow({
-        log,
-        unitTemplate: context.unitTemplate,
-        overrides: context.overrides,
-        scalingFactor: context.scalingFactor,
-        rtuKey,
-      })
+      const row = mapRawCsvRow({ log, meterKey })
       if (row) {
         count += 1
       }
@@ -1648,20 +1267,20 @@ export async function countCustomerEmsRawRows({
 export async function* streamCustomerRawRows({
   customerId,
   unitId,
-  rtuKey,
+  meterKey,
   startAt,
   endAt,
   batchSize = 2_000,
 }: {
   customerId: number
   unitId: string
-  rtuKey: string
+  meterKey: string
   startAt?: Date
   endAt?: Date
   batchSize?: number
 }): AsyncGenerator<CustomerRawCsvRow, void, void> {
-  const context = await getCustomerRawRowsIteratorContext({ customerId, unitId })
-  if (!context) {
+  const unit = await getCustomerUnitForLogs({ customerId, unitId })
+  if (!unit) {
     return
   }
 
@@ -1670,22 +1289,23 @@ export async function* streamCustomerRawRows({
   let cursorId: bigint | null = null
 
   while (true) {
-    const whereClause: Record<string, unknown> = {
-      ems_unit_id: context.unit.id,
-      ...(deviceTimestampFilter
-        ? { device_timestamp: deviceTimestampFilter }
-        : {}),
-      ...(cursorId ? { id: { gt: cursorId } } : {}),
-    }
-
-    const rows = await prisma.emsLog.findMany({
-      where: whereClause,
+    const rows: Array<{
+      id: bigint
+      device_timestamp: Date
+      meter_payload: Prisma.JsonValue
+    }> = await prisma.emsLog.findMany({
+      where: {
+        ems_unit_id: unit.id,
+        message_type: "data",
+        ...(deviceTimestampFilter ? { device_timestamp: deviceTimestampFilter } : {}),
+        ...(cursorId ? { id: { gt: cursorId } } : {}),
+      },
       orderBy: [{ id: "asc" }],
       take: safeBatchSize,
       select: {
         id: true,
         device_timestamp: true,
-        raw_rtu_array: true,
+        meter_payload: true,
       },
     })
 
@@ -1694,13 +1314,7 @@ export async function* streamCustomerRawRows({
     }
 
     for (const log of rows) {
-      const row = mapRawCsvRow({
-        log,
-        unitTemplate: context.unitTemplate,
-        overrides: context.overrides,
-        scalingFactor: context.scalingFactor,
-        rtuKey,
-      })
+      const row = mapRawCsvRow({ log, meterKey })
       if (row) {
         yield row
       }
