@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import {
@@ -113,6 +114,7 @@ export function CustomerUnitTabClient({
   tab: string
 }) {
   const CACHE_TTL_MS = 10_000
+  const searchParams = useSearchParams()
   const { user } = useUser()
   const { activeUnit, refreshCurrentUnit, setActiveUnit } = useCustomerEms()
   const unit =
@@ -185,6 +187,7 @@ export function CustomerUnitTabClient({
     ])
   )
   const logsPageRequestTokenRef = useRef(0)
+  const lastAppliedMeterQueryRef = useRef<string | null>(null)
 
   useEffect(() => {
     setActiveUnit(initialUnit)
@@ -264,6 +267,29 @@ export function CustomerUnitTabClient({
 
     return Array.from(map.values())
   }, [unit])
+
+  useEffect(() => {
+    const meterQuery = searchParams.get("meter")
+    if (!meterQuery) {
+      return
+    }
+
+    const normalizedQuery = meterQuery.trim().toLowerCase()
+    if (!normalizedQuery || lastAppliedMeterQueryRef.current === normalizedQuery) {
+      return
+    }
+
+    const match = availableMeters.find((meter) => {
+      const keyMatches = meter.meterKey.trim().toLowerCase() === normalizedQuery
+      const nameMatches = meter.name.trim().toLowerCase() === normalizedQuery
+      return keyMatches || nameMatches
+    })
+
+    if (match) {
+      setSelectedMeterKey(match.meterKey)
+      lastAppliedMeterQueryRef.current = normalizedQuery
+    }
+  }, [availableMeters, searchParams])
 
   const effectiveMeterKey = selectedMeterKey || availableMeters[0]?.meterKey || ""
 

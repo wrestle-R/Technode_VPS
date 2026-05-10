@@ -7,7 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <Suspense>
         <AdminSidebar />
       </Suspense>

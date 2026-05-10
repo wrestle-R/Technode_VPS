@@ -119,7 +119,7 @@ export function CustomerDashboardMap({ devices }: { devices: CustomerDeviceMapDa
 
                       <div className="mt-3">
                         <Link
-                          href={`/devices/ems/${device.unitId}/charts`}
+                          href={`/devices/ems/${device.unitId}`}
                           className="block w-full rounded-[6px] bg-primary py-1.5 text-center text-[10px] font-medium text-primary-foreground transition-opacity hover:opacity-90 active:scale-95 shadow-sm"
                         >
                           View Details

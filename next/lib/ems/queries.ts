@@ -37,6 +37,7 @@ type MetricValue = {
 type MeterEntry = {
   meterKey: string
   name: string
+  label: string | null
   metrics: MetricValue[]
 }
 
@@ -80,7 +81,10 @@ function finiteMetric(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
-function meterEntriesFromPayload(raw: unknown): MeterEntry[] {
+function meterEntriesFromPayload(
+  raw: unknown,
+  labelMap?: Map<string, string | null>
+): MeterEntry[] {
   if (!isPlainObject(raw)) {
     return []
   }
@@ -116,9 +120,20 @@ function meterEntriesFromPayload(raw: unknown): MeterEntry[] {
     return {
       meterKey,
       name: meterName,
+      label: labelMap?.get(meterKey) ?? null,
       metrics,
     }
   })
+}
+
+function buildMeterLabelMap(
+  labels: Array<{ meter_key: string; label: string }>
+) {
+  const map = new Map<string, string | null>()
+  for (const row of labels) {
+    map.set(row.meter_key, row.label)
+  }
+  return map
 }
 
 function findMeter(meters: MeterEntry[], meterKey: string) {
@@ -647,6 +662,12 @@ export async function getCustomerEmsUnitDetail({
   const unit = await prisma.emsUnit.findFirst({
     where: { unit_id: unitId, customer_id: customerId },
     include: {
+      meter_labels: {
+        select: {
+          meter_key: true,
+          label: true,
+        },
+      },
       logs: {
         where: { message_type: "data" },
         orderBy: [{ device_timestamp: "desc" }, { created_at: "desc" }],
@@ -660,6 +681,7 @@ export async function getCustomerEmsUnitDetail({
   }
 
   const latestDataLog = unit.logs[0] ?? null
+  const meterLabelMap = buildMeterLabelMap(unit.meter_labels)
 
   return {
     id: unit.id.toString(),
@@ -670,12 +692,14 @@ export async function getCustomerEmsUnitDetail({
     longitude: asNumber(unit.longitude),
     deviceType: unit.device_type,
     lastSeenAt: unit.last_seen_at?.toISOString() ?? null,
-    latestMeters: latestDataLog ? meterEntriesFromPayload(latestDataLog.meter_payload) : [],
+    latestMeters: latestDataLog
+      ? meterEntriesFromPayload(latestDataLog.meter_payload, meterLabelMap)
+      : [],
     logs: unit.logs.map((log) => ({
       id: log.id.toString(),
       deviceTimestamp: log.device_timestamp.toISOString(),
       status: inferLogStatus(log.status_value, log.raw_payload),
-      meters: meterEntriesFromPayload(log.meter_payload),
+      meters: meterEntriesFromPayload(log.meter_payload, meterLabelMap),
     })),
   }
 }

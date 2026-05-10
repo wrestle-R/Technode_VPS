@@ -8,6 +8,7 @@ export type MetricValue = {
 export type MeterEntry = {
   meterKey: string
   name: string
+  label: string | null
   metrics: MetricValue[]
 }
 

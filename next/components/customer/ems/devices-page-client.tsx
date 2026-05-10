@@ -33,6 +33,7 @@ export function CustomerDevicesPageClient({
   useEffect(() => {
     const topUnits = units.slice(0, 8)
     for (const unit of topUnits) {
+      router.prefetch(`/devices/ems/${unit.unitId}`)
       router.prefetch(`/devices/ems/${unit.unitId}/charts`)
       router.prefetch(`/devices/ems/${unit.unitId}/logs`)
       router.prefetch(`/devices/ems/${unit.unitId}/reports`)
@@ -92,7 +93,7 @@ export function CustomerDevicesPageClient({
           className="rounded-2xl bg-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)]"
         >
           <Link
-            href={`/devices/ems/${unit.unitId}/charts`}
+            href={`/devices/ems/${unit.unitId}`}
             className="card-glow block rounded-[15px] bg-card p-5 transition hover:translate-y-[-2px]"
           >
             <p className="text-xs font-semibold tracking-[0.1em] text-muted-foreground uppercase">

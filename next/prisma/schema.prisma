@@ -52,10 +52,25 @@ model EmsUnit {
   updated_at     DateTime  @updatedAt
   customer       Customer? @relation(fields: [customer_id], references: [customer_id], onDelete: SetNull)
   logs           EmsLog[]
+  meter_labels   EmsMeterLabel[]
 
   @@index([customer_id])
   @@index([last_seen_at])
   @@map("ems_units")
+}
+
+model EmsMeterLabel {
+  id          BigInt   @id @default(autoincrement())
+  ems_unit_id BigInt
+  meter_key   String   @db.VarChar(64)
+  label       String   @db.VarChar(120)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  ems_unit    EmsUnit  @relation(fields: [ems_unit_id], references: [id], onDelete: Cascade)
+
+  @@unique([ems_unit_id, meter_key])
+  @@index([ems_unit_id])
+  @@map("ems_meter_labels")
 }
 
 model EmsLog {

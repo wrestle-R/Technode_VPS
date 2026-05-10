@@ -40,8 +40,8 @@ export function AppBreadcrumb() {
     if (staticRoutes.has(path)) return true;
     if (/^\/admin\/devices\/ems\/[^/]+$/.test(path)) return true;
     if (/^\/admin\/companies\/[^/]+$/.test(path)) return true;
-    if (/^\/devices\/ems\/[^/]+\/[^/]+$/.test(path)) return true;
-    if (/^\/ems\/[^/]+\/[^/]+\/(charts|logs|reports)$/.test(path)) return true;
+    if (/^\/devices\/ems\/[^/]+$/.test(path)) return true;
+    if (/^\/devices\/ems\/[^/]+\/(charts|logs|reports)$/.test(path)) return true;
 
     return false;
   };

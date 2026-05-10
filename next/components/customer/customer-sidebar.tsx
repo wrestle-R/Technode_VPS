@@ -74,8 +74,8 @@ export function CustomerSidebar({
     return deviceType === "ems" ? Zap : Cpu
   }
 
-  const chartHrefForUnit = (unitId: string) =>
-    `/devices/ems/${encodeURIComponent(unitId)}/charts`
+  const overviewHrefForUnit = (unitId: string) =>
+    `/devices/ems/${encodeURIComponent(unitId)}`
 
   const isActive = (url: string, hasChildren = false) => {
     if (pathname === url) return true
@@ -165,7 +165,7 @@ export function CustomerSidebar({
                       <SidebarMenuButton
                         isActive={isUnitActive}
                         tooltip={unit.unitId}
-                        onClick={() => router.push(chartHrefForUnit(unit.unitId))}
+                        onClick={() => router.push(overviewHrefForUnit(unit.unitId))}
                         className="cursor-pointer"
                       >
                         <DeviceIcon className="h-4 w-4 shrink-0" />
@@ -190,7 +190,7 @@ export function CustomerSidebar({
                           <SidebarMenuButton
                             isActive={pathname.includes(`/ems/${unit.unitId}`)}
                             tooltip={unit.unitId}
-                            onClick={() => router.push(chartHrefForUnit(unit.unitId))}
+                            onClick={() => router.push(overviewHrefForUnit(unit.unitId))}
                             className={cn(
                               "cursor-pointer",
                               state === "expanded" &&
