@@ -24,6 +24,7 @@ import { toast } from "sonner"
 
 import { formatNumber } from "@/components/customer/ems/helpers"
 import type { CustomerUnitDetail, MeterEntry, MetricValue, UnitLog } from "@/components/customer/ems/types"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type MeterRow = {
   meterKey: string
@@ -169,6 +170,7 @@ function buildEnergyCurves(unit: CustomerUnitDetail, rows: MeterRow[]) {
 
 export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const [meterLabels, setMeterLabels] = useState<Record<string, string | null>>(() => {
     const map: Record<string, string | null> = {}
     for (const meter of unit.latestMeters) {
@@ -274,13 +276,13 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
   return (
     <div className="mx-auto grid w-full max-w-[1700px] gap-3 xl:grid-cols-12">
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
-        <h2 className="text-[32px] font-semibold leading-none">Voltage</h2>
-        <div className="mt-2 h-[250px]">
+        <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Voltage</h2>
+        <div className="mt-2 h-[220px] sm:h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={voltageTrend}>
+            <LineChart data={voltageTrend} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
+              <YAxis tick={{ fontSize: 10 }} width={28} />
               <Tooltip />
               {rows.map((meter, index) => (
                 <Line
@@ -293,23 +295,23 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                   stroke={seriesColors[index % seriesColors.length]}
                 />
               ))}
-              <Legend />
+              {!isMobile ? <Legend /> : null}
             </LineChart>
           </ResponsiveContainer>
         </div>
       </article>
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
-        <h2 className="text-[32px] font-semibold leading-none">Energy consumption</h2>
+        <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy consumption</h2>
         <p className="mt-1 text-sm text-muted-foreground">History</p>
-        <div className="mt-2 h-[250px]">
+        <div className="mt-2 h-[220px] sm:h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={energyBars}>
+            <BarChart data={energyBars} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={22} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={24} />
+              <YAxis tick={{ fontSize: 10 }} width={28} />
               <Tooltip />
-              <Legend formatter={(value) => <span className="px-1">{value}</span>} />
+              {!isMobile ? <Legend formatter={(value) => <span className="px-1">{value}</span>} /> : null}
               {rows.map((meter, index) => (
                 <Bar
                   key={meter.meterKey}
@@ -325,9 +327,9 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
       </article>
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
-        <h2 className="text-[32px] font-semibold leading-none">Energy meters</h2>
+        <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy meters</h2>
         <div className="mt-2 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-[680px] text-xs sm:min-w-full sm:text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
                 <th className="px-2 py-2 font-medium">Name</th>
@@ -344,8 +346,8 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                   className="cursor-pointer border-b transition hover:bg-muted/35"
                   onClick={() => onMeterClick(row)}
                 >
-                  <td className="px-2 py-3 font-medium">{row.name}</td>
-                  <td className="px-2 py-3">
+                  <td className="px-2 py-2.5 font-medium sm:py-3">{row.name}</td>
+                  <td className="px-2 py-2.5 sm:py-3">
                     {editingMeterKey === row.meterKey ? (
                       <div
                         className="flex items-center gap-1.5"
@@ -359,7 +361,7 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                               [row.meterKey]: event.target.value,
                             }))
                           }
-                          className="h-8 w-28 rounded-md border border-input bg-background px-2 text-xs"
+                          className="h-8 w-24 rounded-md border border-input bg-background px-2 text-xs sm:w-28"
                         />
                         <button
                           type="button"
@@ -387,9 +389,9 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                       </button>
                     )}
                   </td>
-                  <td className="px-2 py-3">{formatNumber(row.voltage, 2)}</td>
-                  <td className="px-2 py-3">{formatNumber(row.amperage, 2)}</td>
-                  <td className="px-2 py-3">{formatNumber(row.power, 2)}</td>
+                  <td className="px-2 py-2.5 sm:py-3">{formatNumber(row.voltage, 2)}</td>
+                  <td className="px-2 py-2.5 sm:py-3">{formatNumber(row.amperage, 2)}</td>
+                  <td className="px-2 py-2.5 sm:py-3">{formatNumber(row.power, 2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -398,32 +400,32 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
       </article>
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
-        <h2 className="text-[32px] font-semibold leading-none">Energy consumption</h2>
-        <div className="mt-2 h-[260px]">
+        <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy consumption</h2>
+        <div className="mt-2 h-[240px] sm:h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={120} label>
+              <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={isMobile ? 78 : 120} label={!isMobile}>
                 {pieData.map((slice, index) => (
                   <Cell key={`${slice.name}-${index}`} fill={seriesColors[index % seriesColors.length]} />
                 ))}
               </Pie>
               <Tooltip />
-              <Legend />
+              {!isMobile ? <Legend /> : null}
             </PieChart>
           </ResponsiveContainer>
         </div>
       </article>
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
-        <h2 className="text-[32px] font-semibold leading-none">Amperage</h2>
-        <div className="mt-2 h-[260px]">
+        <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Amperage</h2>
+        <div className="mt-2 h-[240px] sm:h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={ampTrend}>
+            <AreaChart data={ampTrend} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
+              <YAxis tick={{ fontSize: 10 }} width={28} />
               <Tooltip />
-              <Legend />
+              {!isMobile ? <Legend /> : null}
               {rows.map((meter, index) => (
                 <Area
                   key={meter.meterKey}
@@ -441,13 +443,13 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
       </article>
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
-        <h2 className="text-[32px] font-semibold leading-none">Energy Curves</h2>
+        <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy Curves</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {curveMeters.map((meter) => meter.name).join(" vs ")}
         </p>
-        <div className="mt-2 h-[260px]">
+        <div className="mt-2 h-[240px] sm:h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={energyCurves}>
+            <AreaChart data={energyCurves} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
               <defs>
                 <linearGradient id="curve-blue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.45} />
@@ -463,8 +465,8 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
+              <YAxis tick={{ fontSize: 10 }} width={32} />
               <Tooltip />
               <Area
                 type="monotone"
@@ -493,7 +495,7 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                 fillOpacity={1}
                 strokeWidth={2}
               />
-              <Legend />
+              {!isMobile ? <Legend /> : null}
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -501,7 +503,7 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-6">
         <h2 className="text-2xl font-semibold leading-none">Live Unit Stats</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-lg border bg-muted/25 p-2.5">
             <p className="text-xs text-muted-foreground">Meters</p>
             <p className="mt-1 text-lg font-semibold">{statsSummary.meterCount}</p>
@@ -541,7 +543,7 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-6">
         <h2 className="text-2xl font-semibold leading-none">Unit Snapshot</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-2">
           <div className="rounded-lg border bg-muted/25 p-2.5">
             <p className="text-xs text-muted-foreground">Unit ID</p>
             <p className="mt-1 font-mono text-sm">{unit.unitId}</p>

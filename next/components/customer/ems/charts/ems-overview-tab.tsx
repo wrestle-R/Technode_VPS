@@ -84,8 +84,8 @@ function MetricGauge({
       <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
         {label}
       </p>
-      <div className="relative mt-1 h-36">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="relative mt-1 h-36 min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={120}>
           <RadialBarChart
             cx="50%"
             cy="62%"
@@ -202,10 +202,10 @@ export function EmsOverviewTab({
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-5"
+      className="min-w-0 space-y-5"
     >
-      <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-        <article className={gradientCardClassName()}>
+      <section className="grid min-w-0 gap-4 lg:grid-cols-2 2xl:grid-cols-4">
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <MetricGauge
               label="Voltage-LL"
@@ -222,7 +222,7 @@ export function EmsOverviewTab({
             </div>
           </div>
         </article>
-        <article className={gradientCardClassName()}>
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <MetricGauge
               label="Current"
@@ -239,7 +239,7 @@ export function EmsOverviewTab({
             </div>
           </div>
         </article>
-        <article className={gradientCardClassName()}>
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <MetricGauge
               label="Power Factor"
@@ -256,7 +256,7 @@ export function EmsOverviewTab({
             </div>
           </div>
         </article>
-        <article className={gradientCardClassName()}>
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <MetricGauge
               label="Frequency"
@@ -275,12 +275,12 @@ export function EmsOverviewTab({
         </article>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <article className={gradientCardClassName()}>
+      <section className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Voltage + Current Trends</p>
-            <div className="mt-3 h-96">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="mt-3 h-96 min-h-[16rem] min-w-0 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                 <LineChart data={latestRows}>
                   <defs>
                     <linearGradient
@@ -371,11 +371,11 @@ export function EmsOverviewTab({
           </div>
         </article>
 
-        <article className={gradientCardClassName()}>
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Power Factor Health</p>
-            <div className="mt-3 h-96">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="mt-3 h-96 min-h-[16rem] min-w-0 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                 <AreaChart data={latestRows}>
                   <defs>
                     <linearGradient
@@ -442,11 +442,11 @@ export function EmsOverviewTab({
           </div>
         </article>
 
-        <article className={gradientCardClassName()}>
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Phase Snapshot</p>
-            <div className="mt-3 h-96">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="mt-3 h-96 min-h-[16rem] min-w-0 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                 <BarChart data={phaseOverview}>
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -481,11 +481,11 @@ export function EmsOverviewTab({
           </div>
         </article>
 
-        <article className={gradientCardClassName()}>
+        <article className={gradientCardClassName("min-w-0")}>
           <div className="rounded-[15px] bg-card p-4">
             <p className="text-sm font-semibold">Energy Curves</p>
-            <div className="mt-3 h-96">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="mt-3 h-96 min-h-[16rem] min-w-0 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                 <LineChart data={latestRows}>
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -555,7 +555,7 @@ export function EmsOverviewTab({
         </article>
       </section>
 
-      <article className={gradientCardClassName()}>
+      <article className={gradientCardClassName("min-w-0")}>
         <div className="rounded-[15px] bg-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

@@ -11,7 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-export function AppBreadcrumb() {
+export function AppBreadcrumb({ className }: { className?: string }) {
   const pathname = usePathname();
   const pathnames = pathname.split("/").filter((x) => x);
   const isAdminArea = pathname.startsWith("/admin");
@@ -49,10 +49,12 @@ export function AppBreadcrumb() {
   const homeHref = isAdminArea ? "/admin/dashboard" : "/dashboard";
 
   return (
-    <Breadcrumb>
-      <BreadcrumbList>
+    <Breadcrumb className={className}>
+      <BreadcrumbList className="min-w-0 overflow-hidden">
         <BreadcrumbItem>
-          <BreadcrumbLink href={homeHref}>Home</BreadcrumbLink>
+          <BreadcrumbLink href={homeHref} className="truncate">
+            Home
+          </BreadcrumbLink>
         </BreadcrumbItem>
 
         {pathnames.map((value, index) => {
@@ -68,11 +70,13 @@ export function AppBreadcrumb() {
           return (
             <React.Fragment key={to}>
               <BreadcrumbSeparator />
-              <BreadcrumbItem>
+              <BreadcrumbItem className="min-w-0">
                 {isLast || !routeExists(to) ? (
-                  <BreadcrumbPage>{displayName}</BreadcrumbPage>
+                  <BreadcrumbPage className="truncate">{displayName}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink href={to}>{displayName}</BreadcrumbLink>
+                  <BreadcrumbLink href={to} className="truncate">
+                    {displayName}
+                  </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
             </React.Fragment>
