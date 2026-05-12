@@ -4,11 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
-import {
-  average,
-  buildTrendRows,
-  metricValueFromLatest,
-} from "@/components/customer/ems/helpers"
+import { buildTrendRows } from "@/components/customer/ems/helpers"
 import {
   buildAnalyticalReportModel,
   buildConsumptionReportModel,
@@ -18,41 +14,25 @@ import {
   reportDateRangeLabel,
   selectReportRows,
 } from "@/components/customer/ems/reports/report-export"
-import { EmsChartTabs } from "@/components/customer/ems/charts/ems-chart-tabs"
-import { EmsOverviewTab } from "@/components/customer/ems/charts/ems-overview-tab"
-import { EmsVoltageTab } from "@/components/customer/ems/charts/ems-voltage-tab"
-import { EmsCurrentTab } from "@/components/customer/ems/charts/ems-current-tab"
-import { EmsEnergyTab } from "@/components/customer/ems/charts/ems-energy-tab"
-import { EmsDiagnosticTab } from "@/components/customer/ems/charts/ems-diagnostic-tab"
+import { EmsDashboardGrid } from "@/components/customer/ems/charts/ems-dashboard-grid"
 import { EmsLogsTable } from "@/components/customer/ems/logs/ems-logs-table"
 import { EmsReportsPanel } from "@/components/customer/ems/reports/ems-reports-panel"
 import { useCustomerEms } from "@/contexts/customer-ems-context"
 import { useUser } from "@/contexts/user-context"
 import type {
-  ChartTab,
   ConsumptionRange,
   CustomerUnitDetail,
   EnergyAnalytics,
-  EnergyDailyRange,
   HourlyCurrentStats,
   HourlyVoltageStats,
   ReportExportFormat,
   ReportRange,
   ReportType,
-  SummaryRange,
-  SummaryStats,
   UnitLog,
 } from "@/components/customer/ems/types"
 
-const chartTabs: ChartTab[] = [
-  "overview",
-  "voltage",
-  "current",
-  "energy",
-  "diagnostic",
-]
-
 const LOGS_PAGE_SIZE = 50
+const DASHBOARD_ENERGY_RANGE = "7d"
 
 type LogsApiResponse = {
   logs: UnitLog[]
@@ -64,10 +44,6 @@ type LogsPageCache = {
   rows: UnitLog[]
   nextCursor: string | null
   hasMore: boolean
-}
-
-function isChartTab(value: string): value is ChartTab {
-  return chartTabs.includes(value as ChartTab)
 }
 
 function toDateParam(date: Date) {
@@ -101,7 +77,7 @@ function buildInitialLogsPage(logs: UnitLog[]): LogsPageCache {
   return {
     rows,
     nextCursor:
-      hasMore && rows.length > 0 ? rows[rows.length - 1]?.id ?? null : null,
+      hasMore && rows.length > 0 ? (rows[rows.length - 1]?.id ?? null) : null,
     hasMore,
   }
 }
@@ -118,24 +94,17 @@ export function CustomerUnitTabClient({
   const { user } = useUser()
   const { activeUnit, refreshCurrentUnit, setActiveUnit } = useCustomerEms()
   const unit =
-    activeUnit && activeUnit.unitId === initialUnit.unitId ? activeUnit : initialUnit
+    activeUnit && activeUnit.unitId === initialUnit.unitId
+      ? activeUnit
+      : initialUnit
   const [selectedMeterKey, setSelectedMeterKey] = useState(
     initialUnit.latestMeters[0]?.meterKey ?? ""
   )
-  const [selectedChartTab, setSelectedChartTab] = useState<ChartTab>("overview")
-  const chartTabStorageKey = `ems:chart-tab:${initialUnit.unitId}`
   const [reportRange, setReportRange] = useState<ReportRange>("30d")
   const [reportType, setReportType] = useState<ReportType>("raw")
   const [consumptionRange, setConsumptionRange] =
     useState<ConsumptionRange>("monthly")
   const [unitPrice, setUnitPrice] = useState(8.5)
-  const [summaryRange, setSummaryRange] = useState<SummaryRange>("7d")
-  const [summary, setSummary] = useState<SummaryStats>({
-    voltage: { max: null, min: null, avg: null },
-    current: { max: null, min: null, avg: null },
-    power: { max: null, min: null, avg: null },
-    powerFactor: { max: null, min: null, avg: null },
-  })
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(
     undefined
   )
@@ -150,15 +119,13 @@ export function CustomerUnitTabClient({
     points: [],
     computedAt: new Date(0).toISOString(),
   })
-  const [energyDailyRange, setEnergyDailyRange] =
-    useState<EnergyDailyRange>("30d")
-  const [energyAnalytics, setEnergyAnalytics] = useState<EnergyAnalytics | null>(
-    null
-  )
-  const [isEnergyAnalyticsLoading, setIsEnergyAnalyticsLoading] = useState(false)
+  const [energyAnalytics, setEnergyAnalytics] =
+    useState<EnergyAnalytics | null>(null)
   const initialLogsPage = buildInitialLogsPage(initialUnit.logs)
   const [logsPageIndex, setLogsPageIndex] = useState(0)
-  const [logsPageRows, setLogsPageRows] = useState<UnitLog[]>(initialLogsPage.rows)
+  const [logsPageRows, setLogsPageRows] = useState<UnitLog[]>(
+    initialLogsPage.rows
+  )
   const [logsHasMore, setLogsHasMore] = useState(initialLogsPage.hasMore)
   const [isLogsPageLoading, setIsLogsPageLoading] = useState(false)
   const [reportRowsInRangeCount, setReportRowsInRangeCount] = useState<
@@ -166,9 +133,6 @@ export function CustomerUnitTabClient({
   >(null)
   const [isReportRowsInRangeCountLoading, setIsReportRowsInRangeCountLoading] =
     useState(false)
-  const summaryCacheRef = useRef(
-    new Map<string, { data: SummaryStats; fetchedAt: number }>()
-  )
   const hourlyCurrentCacheRef = useRef(
     new Map<string, { data: HourlyCurrentStats; fetchedAt: number }>()
   )
@@ -179,12 +143,7 @@ export function CustomerUnitTabClient({
     new Map<string, { data: EnergyAnalytics; fetchedAt: number }>()
   )
   const logsPageCacheRef = useRef(
-    new Map<number, LogsPageCache>([
-      [
-        0,
-        initialLogsPage,
-      ],
-    ])
+    new Map<number, LogsPageCache>([[0, initialLogsPage]])
   )
   const logsPageRequestTokenRef = useRef(0)
   const lastAppliedMeterQueryRef = useRef<string | null>(null)
@@ -217,33 +176,6 @@ export function CustomerUnitTabClient({
     }
   }, [initialUnit.unitId, refreshCurrentUnit])
 
-  useEffect(() => {
-    if (tab !== "charts") {
-      return
-    }
-
-    try {
-      const stored = window.localStorage.getItem(chartTabStorageKey)
-      if (stored && isChartTab(stored)) {
-        setSelectedChartTab(stored)
-      }
-    } catch {
-      return
-    }
-  }, [chartTabStorageKey, tab])
-
-  useEffect(() => {
-    if (tab !== "charts") {
-      return
-    }
-
-    try {
-      window.localStorage.setItem(chartTabStorageKey, selectedChartTab)
-    } catch {
-      return
-    }
-  }, [chartTabStorageKey, selectedChartTab, tab])
-
   const availableMeters = useMemo(() => {
     const map = new Map<string, { meterKey: string; name: string }>()
 
@@ -275,7 +207,10 @@ export function CustomerUnitTabClient({
     }
 
     const normalizedQuery = meterQuery.trim().toLowerCase()
-    if (!normalizedQuery || lastAppliedMeterQueryRef.current === normalizedQuery) {
+    if (
+      !normalizedQuery ||
+      lastAppliedMeterQueryRef.current === normalizedQuery
+    ) {
       return
     }
 
@@ -291,7 +226,8 @@ export function CustomerUnitTabClient({
     }
   }, [availableMeters, searchParams])
 
-  const effectiveMeterKey = selectedMeterKey || availableMeters[0]?.meterKey || ""
+  const effectiveMeterKey =
+    selectedMeterKey || availableMeters[0]?.meterKey || ""
 
   const selectedLogRows = useMemo(
     () => mapLogsForMeter(unit.logs, effectiveMeterKey),
@@ -307,7 +243,9 @@ export function CustomerUnitTabClient({
   useEffect(() => {
     const firstPage = buildInitialLogsPage(unit.logs)
     const cachedFirstPage = logsPageCacheRef.current.get(0)
-    const hasCachedRows = Boolean(cachedFirstPage && cachedFirstPage.rows.length > 0)
+    const hasCachedRows = Boolean(
+      cachedFirstPage && cachedFirstPage.rows.length > 0
+    )
     const hasIncomingRows = Boolean(firstPage.rows.length > 0)
     if (hasCachedRows && !hasIncomingRows) {
       return
@@ -345,98 +283,11 @@ export function CustomerUnitTabClient({
     [selectedLogRows]
   )
 
-  const frequency = metricValueFromLatest(trendRows, "Freq")
-
-  const overviewSnapshot = useMemo(() => {
-    const vry = metricValueFromLatest(trendRows, "VRY")
-    const vyb = metricValueFromLatest(trendRows, "VYB")
-    const vbr = metricValueFromLatest(trendRows, "VBR")
-    const vrn = metricValueFromLatest(trendRows, "VRN")
-    const vyn = metricValueFromLatest(trendRows, "VYN")
-    const vbn = metricValueFromLatest(trendRows, "VBN")
-    const ir = metricValueFromLatest(trendRows, "IR")
-    const iy = metricValueFromLatest(trendRows, "IY")
-    const ib = metricValueFromLatest(trendRows, "IB")
-    const pfr = metricValueFromLatest(trendRows, "PF-R")
-    const pfy = metricValueFromLatest(trendRows, "PF-Y")
-    const pfb = metricValueFromLatest(trendRows, "PF-B")
-
-    return {
-      voltageLL: average([vry, vyb, vbr]),
-      voltageR: vrn,
-      voltageY: vyn,
-      voltageB: vbn,
-      currentTotal: average([ir, iy, ib]),
-      currentR: ir,
-      currentY: iy,
-      currentB: ib,
-      powerFactorAvg: average([pfr, pfy, pfb]),
-      powerFactorR: pfr,
-      powerFactorY: pfy,
-      powerFactorB: pfb,
-      frequency,
-    }
-  }, [frequency, trendRows])
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadSummary() {
-      if (tab !== "charts" || selectedChartTab !== "overview") {
-        return
-      }
-
-      if (!effectiveMeterKey) {
-        return
-      }
-
-      const cacheKey = `${unit.unitId}:${effectiveMeterKey}:${summaryRange}`
-      const cached = summaryCacheRef.current.get(cacheKey)
-      if (cached) {
-        setSummary(cached.data)
-      }
-
-      if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-        return
-      }
-
-      try {
-        const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/summary?range=${summaryRange}&meterKey=${encodeURIComponent(effectiveMeterKey)}`,
-          {
-            cache: "no-store",
-          }
-        )
-
-        if (!response.ok) {
-          return
-        }
-
-        const data = (await response.json()) as { summary?: SummaryStats }
-        if (!cancelled && data.summary) {
-          summaryCacheRef.current.set(cacheKey, {
-            data: data.summary,
-            fetchedAt: Date.now(),
-          })
-          setSummary(data.summary)
-        }
-      } catch {
-        return
-      }
-    }
-
-    void loadSummary()
-
-    return () => {
-      cancelled = true
-    }
-  }, [effectiveMeterKey, selectedChartTab, summaryRange, tab, unit.unitId])
-
   useEffect(() => {
     let cancelled = false
 
     async function loadHourlyCurrent() {
-      if (tab !== "charts" || selectedChartTab !== "current") {
+      if (tab !== "charts") {
         return
       }
 
@@ -483,7 +334,7 @@ export function CustomerUnitTabClient({
     void loadHourlyCurrent()
 
     const interval =
-      tab === "charts" && selectedChartTab === "current"
+      tab === "charts"
         ? window.setInterval(() => {
             void loadHourlyCurrent()
           }, 30_000)
@@ -495,13 +346,13 @@ export function CustomerUnitTabClient({
         window.clearInterval(interval)
       }
     }
-  }, [effectiveMeterKey, selectedChartTab, tab, unit.unitId])
+  }, [effectiveMeterKey, tab, unit.unitId])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadHourlyVoltage() {
-      if (tab !== "charts" || selectedChartTab !== "voltage") {
+      if (tab !== "charts") {
         return
       }
 
@@ -548,7 +399,7 @@ export function CustomerUnitTabClient({
     void loadHourlyVoltage()
 
     const interval =
-      tab === "charts" && selectedChartTab === "voltage"
+      tab === "charts"
         ? window.setInterval(() => {
             void loadHourlyVoltage()
           }, 30_000)
@@ -560,13 +411,13 @@ export function CustomerUnitTabClient({
         window.clearInterval(interval)
       }
     }
-  }, [effectiveMeterKey, selectedChartTab, tab, unit.unitId])
+  }, [effectiveMeterKey, tab, unit.unitId])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadEnergyAnalytics() {
-      if (tab !== "charts" || selectedChartTab !== "energy") {
+      if (tab !== "charts") {
         return
       }
 
@@ -575,24 +426,19 @@ export function CustomerUnitTabClient({
         return
       }
 
-      const cacheKey = `${unit.unitId}:${effectiveMeterKey}:${energyDailyRange}`
+      const cacheKey = `${unit.unitId}:${effectiveMeterKey}:${DASHBOARD_ENERGY_RANGE}`
       const cached = energyAnalyticsCacheRef.current.get(cacheKey)
       if (cached) {
         setEnergyAnalytics(cached.data)
       }
 
       if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-        setIsEnergyAnalyticsLoading(false)
         return
-      }
-
-      if (!cached) {
-        setIsEnergyAnalyticsLoading(true)
       }
 
       try {
         const response = await fetch(
-          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/energy-analytics?meterKey=${encodeURIComponent(effectiveMeterKey)}&dailyRange=${encodeURIComponent(energyDailyRange)}`,
+          `/api/customer/ems/${encodeURIComponent(unit.unitId)}/energy-analytics?meterKey=${encodeURIComponent(effectiveMeterKey)}&dailyRange=${encodeURIComponent(DASHBOARD_ENERGY_RANGE)}`,
           {
             cache: "no-store",
           }
@@ -612,17 +458,13 @@ export function CustomerUnitTabClient({
         }
       } catch {
         return
-      } finally {
-        if (!cancelled) {
-          setIsEnergyAnalyticsLoading(false)
-        }
       }
     }
 
     void loadEnergyAnalytics()
 
     const interval =
-      tab === "charts" && selectedChartTab === "energy"
+      tab === "charts"
         ? window.setInterval(() => {
             void loadEnergyAnalytics()
           }, 30_000)
@@ -634,7 +476,7 @@ export function CustomerUnitTabClient({
         window.clearInterval(interval)
       }
     }
-  }, [effectiveMeterKey, energyDailyRange, selectedChartTab, tab, unit.unitId])
+  }, [effectiveMeterKey, tab, unit.unitId])
 
   const reportRows = useMemo(() => {
     return selectReportRows({
@@ -955,6 +797,10 @@ export function CustomerUnitTabClient({
   }
 
   if (tab === "charts") {
+    const selectedMeter = availableMeters.find(
+      (meter) => meter.meterKey === effectiveMeterKey
+    )
+
     return (
       <div className="space-y-6">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -993,45 +839,15 @@ export function CustomerUnitTabClient({
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-card p-4 shadow-sm">
-          <EmsChartTabs
-            selectedChartTab={selectedChartTab}
-            onChange={setSelectedChartTab}
-          />
-        </div>
-
-        {selectedChartTab === "voltage" ? (
-          <EmsVoltageTab
-            trendRows={trendRows}
-            hourlyVoltagePoints={hourlyVoltage.points}
-          />
-        ) : null}
-        {selectedChartTab === "overview" ? (
-          <EmsOverviewTab
-            trendRows={trendRows}
-            snapshot={overviewSnapshot}
-            summary={summary}
-            summaryRange={summaryRange}
-            onSummaryRangeChange={setSummaryRange}
-          />
-        ) : null}
-        {selectedChartTab === "current" ? (
-          <EmsCurrentTab
-            trendRows={trendRows}
-            hourlyCurrentPoints={hourlyCurrent.points}
-          />
-        ) : null}
-        {selectedChartTab === "energy" ? (
-          <EmsEnergyTab
-            analytics={energyAnalytics}
-            dailyRange={energyDailyRange}
-            onDailyRangeChange={setEnergyDailyRange}
-            isLoading={isEnergyAnalyticsLoading}
-          />
-        ) : null}
-        {selectedChartTab === "diagnostic" ? (
-          <EmsDiagnosticTab trendRows={trendRows} />
-        ) : null}
+        <EmsDashboardGrid
+          trendRows={trendRows}
+          hourlyVoltagePoints={hourlyVoltage.points}
+          hourlyCurrentPoints={hourlyCurrent.points}
+          energyAnalytics={energyAnalytics}
+          meterName={
+            selectedMeter?.name ?? (effectiveMeterKey || "Selected meter")
+          }
+        />
       </div>
     )
   }

@@ -88,13 +88,6 @@ export type HourlyVoltageStats = {
   computedAt: string
 }
 
-export type ChartTab =
-  | "overview"
-  | "voltage"
-  | "current"
-  | "energy"
-  | "diagnostic"
-
 export type ReportRange = "24h" | "7d" | "30d" | "custom"
 
 export type ReportType = "raw" | "analytical" | "consumption"

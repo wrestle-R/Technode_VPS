@@ -5,36 +5,8 @@ export const phaseColors = {
   amber: "#f59e0b",
   green: "#22c55e",
   blue: "#2b3242",
-  blueLight: "#2f3544",
   indigo: "#6366f1",
   cyan: "#06b6d4",
-}
-
-export const chartGradients = {
-  blue: {
-    from: "#2f3544",
-    to: "#2b3242",
-  },
-}
-
-export const LOG_WINDOW_SIZE = 30
-export const LOG_SCOPE_LIMIT = 500
-
-export function getPagedTrendRows(rows: TrendPoint[], page: number) {
-  const scoped = rows.slice(-LOG_SCOPE_LIMIT)
-  const totalPages = Math.max(1, Math.ceil(scoped.length / LOG_WINDOW_SIZE))
-  const activePage = Math.min(Math.max(page, 0), totalPages - 1)
-  const end = scoped.length - activePage * LOG_WINDOW_SIZE
-  const start = Math.max(end - LOG_WINDOW_SIZE, 0)
-
-  return {
-    rows: scoped.slice(start, end),
-    totalPages,
-    activePage,
-    from: scoped.length === 0 ? 0 : start + 1,
-    to: end,
-    total: scoped.length,
-  }
 }
 
 export function toFinite(value: number | null | undefined) {
@@ -97,54 +69,11 @@ export function metricValueFromLatest(series: TrendPoint[], key: string) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
-export function gaugeColor(
-  value: number | null,
-  goodThreshold: number,
-  warningThreshold: number
-) {
-  if (value == null) {
-    return "#94a3b8"
-  }
-  if (value >= goodThreshold) {
-    return "#22c55e"
-  }
-  if (value >= warningThreshold) {
-    return "#f59e0b"
-  }
-  return "#ef4444"
-}
-
 export function formatNumber(value: number | null, digits = 2) {
   return value == null ? "-" : value.toFixed(digits)
 }
 
-export function dynamicGaugeMax(
-  values: Array<number | null | undefined>,
-  fallbackMax: number
-) {
-  const finiteValues = values.filter(
-    (value): value is number => typeof value === "number" && Number.isFinite(value)
-  )
-
-  if (finiteValues.length === 0) {
-    return fallbackMax
-  }
-
-  const highest = Math.max(...finiteValues)
-  if (highest <= fallbackMax) {
-    return fallbackMax
-  }
-
-  const padded = highest * 1.12
-  const step = fallbackMax >= 100 ? 20 : fallbackMax >= 20 ? 5 : 1
-  return Math.ceil(padded / step) * step
-}
-
 export function gradientCardClassName(extra?: string) {
-  return `rounded-2xl bg-linear-to-r from-[#2b3242] to-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)] ${extra ?? ""}`
-}
-
-export function reportsGradientCardClassName(extra?: string) {
   return `rounded-2xl bg-linear-to-r from-[#2b3242] to-[#2b3242] p-[1px] shadow-[0_20px_30px_-20px_rgba(43,50,66,0.9)] ${extra ?? ""}`
 }
 
