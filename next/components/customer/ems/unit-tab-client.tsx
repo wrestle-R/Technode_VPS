@@ -840,6 +840,8 @@ export function CustomerUnitTabClient({
         </div>
 
         <EmsDashboardGrid
+          unitId={unit.unitId}
+          meterKey={effectiveMeterKey}
           trendRows={trendRows}
           hourlyVoltagePoints={hourlyVoltage.points}
           hourlyCurrentPoints={hourlyCurrent.points}

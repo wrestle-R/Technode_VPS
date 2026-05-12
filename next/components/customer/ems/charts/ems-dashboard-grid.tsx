@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import {
   Activity,
   Bell,
@@ -20,7 +21,6 @@ import {
   BarChart,
   Brush,
   CartesianGrid,
-  LabelList,
   Line,
   LineChart,
   ReferenceLine,
@@ -30,30 +30,21 @@ import {
   YAxis,
 } from "recharts"
 
+import { formatNumber, phaseColors } from "@/components/customer/ems/helpers"
 import {
-  average,
-  formatNumber,
-  phaseColors,
-} from "@/components/customer/ems/helpers"
+  buildAmperagePoints,
+  buildDashboardPoints,
+  buildEnergyPoints,
+  buildVoltagePoints,
+  latestValue,
+} from "@/components/customer/ems/charts/dashboard-chart-data"
 import type {
+  DashboardChartPanel,
   EnergyAnalytics,
   HourlyCurrentPoint,
   HourlyVoltagePoint,
   TrendPoint,
 } from "@/components/customer/ems/types"
-
-type DashboardPoint = {
-  label: string
-  timestamp: string
-  voltage: number | null
-  amperage: number | null
-  frequency: number | null
-}
-
-type EnergyPoint = {
-  label: string
-  consumption: number
-}
 
 const axisTick = { fontSize: 11, fill: "#6b7280" }
 const gridStroke = "#d1d5db"
@@ -63,121 +54,6 @@ const tooltipStyle = {
   boxShadow: "0 12px 24px -18px rgba(15, 23, 42, 0.35)",
 }
 
-function latestValue(points: DashboardPoint[], key: keyof DashboardPoint) {
-  for (let index = points.length - 1; index >= 0; index -= 1) {
-    const value = points[index]?.[key]
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value
-    }
-  }
-
-  return null
-}
-
-function buildDashboardPoints(trendRows: TrendPoint[]): DashboardPoint[] {
-  return trendRows.slice(-72).map((row) => {
-    const voltage =
-      average([
-        numberMetric(row.VRN),
-        numberMetric(row.VYN),
-        numberMetric(row.VBN),
-      ]) ??
-      average([
-        numberMetric(row.VRY),
-        numberMetric(row.VYB),
-        numberMetric(row.VBR),
-      ])
-
-    return {
-      label: String(row.label),
-      timestamp: String(row.timestamp),
-      voltage,
-      amperage: average([
-        numberMetric(row.IR),
-        numberMetric(row.IY),
-        numberMetric(row.IB),
-      ]),
-      frequency: numberMetric(row.Freq),
-    }
-  })
-}
-
-function buildAmperagePoints(
-  trendRows: TrendPoint[],
-  hourlyCurrentPoints: HourlyCurrentPoint[]
-): DashboardPoint[] {
-  const hasHourlyCurrent = hourlyCurrentPoints.some(
-    (point) => typeof point.averageCurrent === "number"
-  )
-
-  if (!hasHourlyCurrent) {
-    return buildDashboardPoints(trendRows)
-  }
-
-  return hourlyCurrentPoints.map((point) => ({
-    label: point.hour,
-    timestamp: point.timestamp,
-    voltage: null,
-    amperage: point.averageCurrent,
-    frequency: null,
-  }))
-}
-
-function buildVoltagePoints(
-  trendRows: TrendPoint[],
-  hourlyVoltagePoints: HourlyVoltagePoint[]
-): DashboardPoint[] {
-  const hasHourlyVoltage = hourlyVoltagePoints.some(
-    (point) =>
-      typeof point.averageVoltageLN === "number" ||
-      typeof point.averageVoltageLL === "number"
-  )
-
-  if (!hasHourlyVoltage) {
-    return buildDashboardPoints(trendRows)
-  }
-
-  return hourlyVoltagePoints.map((point) => ({
-    label: point.hour,
-    timestamp: point.timestamp,
-    voltage: point.averageVoltageLN ?? point.averageVoltageLL,
-    amperage: null,
-    frequency: null,
-  }))
-}
-
-function buildEnergyPoints(
-  analytics: EnergyAnalytics | null,
-  trendRows: TrendPoint[]
-): EnergyPoint[] {
-  if (analytics?.dailyConsumption.length) {
-    return analytics.dailyConsumption.slice(-7).map((point) => ({
-      label: point.label,
-      consumption: point.consumption,
-    }))
-  }
-
-  const kwhRows = trendRows
-    .slice(-7)
-    .map((row) => ({
-      label: String(row.label),
-      value: numberMetric(row.Kwh),
-    }))
-    .filter((row): row is { label: string; value: number } => row.value != null)
-
-  return kwhRows.map((row, index) => {
-    const previous = kwhRows[index - 1]?.value
-    return {
-      label: row.label,
-      consumption: previous == null ? 0 : Math.max(row.value - previous, 0),
-    }
-  })
-}
-
-function numberMetric(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null
-}
-
 function ChartCard({
   title,
   subtitle,
@@ -185,6 +61,7 @@ function ChartCard({
   unit,
   color,
   isReady,
+  expandHref,
   children,
 }: {
   title: string
@@ -193,6 +70,7 @@ function ChartCard({
   unit: string
   color: string
   isReady: boolean
+  expandHref: string
   children: React.ReactNode
 }) {
   return (
@@ -206,13 +84,13 @@ function ChartCard({
             {subtitle}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label={`Expand ${title}`}
+        <Link
+          href={expandHref}
+          aria-label={`Open expanded ${title} chart page`}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <Expand className="h-4 w-4" />
-        </button>
+        </Link>
       </div>
 
       <div className="mt-4 h-[260px] min-h-[16rem] min-w-0 sm:h-[300px]">
@@ -250,7 +128,7 @@ function AlarmsPlaceholderPanel() {
   ]
 
   return (
-    <aside className="min-w-0 rounded-lg border border-border bg-card shadow-sm xl:row-span-2">
+    <aside className="flex h-full min-w-0 flex-col rounded-lg border border-border bg-card shadow-sm">
       <div className="flex items-start justify-between gap-3 border-b border-border p-3">
         <div className="min-w-0">
           <h2 className="text-xl leading-tight font-semibold text-foreground sm:text-2xl">
@@ -286,7 +164,7 @@ function AlarmsPlaceholderPanel() {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <table className="min-w-[540px] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
@@ -347,12 +225,16 @@ function AlarmsPlaceholderPanel() {
 }
 
 export function EmsDashboardGrid({
+  unitId,
+  meterKey,
   trendRows,
   hourlyCurrentPoints,
   hourlyVoltagePoints,
   energyAnalytics,
   meterName,
 }: {
+  unitId: string
+  meterKey: string
   trendRows: TrendPoint[]
   hourlyCurrentPoints: HourlyCurrentPoint[]
   hourlyVoltagePoints: HourlyVoltagePoint[]
@@ -382,6 +264,9 @@ export function EmsDashboardGrid({
     }
   }, [])
 
+  const expandedHref = (panel: DashboardChartPanel) =>
+    `/devices/ems/${encodeURIComponent(unitId)}/charts/${panel}?meter=${encodeURIComponent(meterKey)}`
+
   return (
     <div className="mx-auto grid w-full max-w-[1900px] gap-3 xl:grid-cols-12">
       <div className="min-w-0 xl:col-span-8">
@@ -393,6 +278,7 @@ export function EmsDashboardGrid({
             unit="V"
             color={phaseColors.green}
             isReady={isChartReady}
+            expandHref={expandedHref("voltage")}
           >
             <ResponsiveContainer
               width="100%"
@@ -441,6 +327,7 @@ export function EmsDashboardGrid({
             unit="kWh"
             color="#3498db"
             isReady={isChartReady}
+            expandHref={expandedHref("energy")}
           >
             <ResponsiveContainer
               width="100%"
@@ -484,6 +371,7 @@ export function EmsDashboardGrid({
             unit="Hz"
             color="#16864a"
             isReady={isChartReady}
+            expandHref={expandedHref("frequency")}
           >
             <ResponsiveContainer
               width="100%"
@@ -510,17 +398,8 @@ export function EmsDashboardGrid({
                   name="Frequency"
                   stroke="#16864a"
                   strokeWidth={2}
-                  dot={{ r: 3, strokeWidth: 2, fill: "#ffffff" }}
-                >
-                  <LabelList
-                    dataKey="frequency"
-                    position="top"
-                    formatter={(value: unknown) =>
-                      typeof value === "number" ? `${value.toFixed(2)} Hz` : ""
-                    }
-                    style={{ fontSize: 10, fill: "#4b5563" }}
-                  />
-                </Line>
+                  dot={false}
+                />
                 <Brush
                   dataKey="label"
                   height={24}
@@ -539,6 +418,7 @@ export function EmsDashboardGrid({
             unit="A"
             color="#f97316"
             isReady={isChartReady}
+            expandHref={expandedHref("amperage")}
           >
             <ResponsiveContainer
               width="100%"
@@ -595,7 +475,7 @@ export function EmsDashboardGrid({
         </div>
       </div>
 
-      <div className="min-w-0 xl:col-span-4">
+      <div className="min-w-0 xl:col-span-4 xl:h-full">
         <AlarmsPlaceholderPanel />
       </div>
 
