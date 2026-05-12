@@ -482,7 +482,7 @@ export function EmsDashboardGrid({
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
         {[
           ["Meter", meterName],
-          ["Data points", String(trendRows.length)],
+          ["Readings", String(trendRows.length)],
           ["Latest voltage", `${formatNumber(latestVoltage, 2)} V`],
           ["Latest amperage", `${formatNumber(latestAmperage, 2)} A`],
         ].map(([label, value]) => (
