@@ -23,6 +23,9 @@ export function AppBreadcrumb({ className }: { className?: string }) {
       "/login",
       "/hidden-admin-login",
       "/dashboard",
+      "/alerts",
+      "/alerts/settings",
+      "/mailing-list",
       "/profile",
       "/devices/ems",
       "/admin",
@@ -42,6 +45,7 @@ export function AppBreadcrumb({ className }: { className?: string }) {
     if (/^\/admin\/companies\/[^/]+$/.test(path)) return true;
     if (/^\/devices\/ems\/[^/]+$/.test(path)) return true;
     if (/^\/devices\/ems\/[^/]+\/(charts|logs|reports)$/.test(path)) return true;
+    if (/^\/alerts\/settings$/.test(path)) return true;
 
     return false;
   };

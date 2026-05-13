@@ -5,14 +5,10 @@ import Link from "next/link"
 import {
   Activity,
   Bell,
-  Check,
   Clock3,
-  Columns3,
+  Eye,
   Expand,
-  Filter,
-  MoreHorizontal,
-  Search,
-  X,
+  RefreshCw,
 } from "lucide-react"
 import {
   Area,
@@ -28,6 +24,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { toast } from "sonner"
 
 import { formatNumber, phaseColors } from "@/components/customer/ems/helpers"
 import {
@@ -44,6 +41,7 @@ import type {
   HourlyVoltagePoint,
   TrendPoint,
 } from "@/components/customer/ems/types"
+import type { AlertInstance } from "@/components/customer/alerts/types"
 
 const axisTick = { fontSize: 11, fill: "#6b7280" }
 const gridStroke = "#d1d5db"
@@ -121,46 +119,94 @@ function ChartCard({
   )
 }
 
-function AlarmsPlaceholderPanel() {
-  const placeholders = [
-    { label: "High voltage placeholder", severity: "Critical" },
-    { label: "Current spike placeholder", severity: "Warning" },
-    { label: "Device offline placeholder", severity: "Info" },
-  ]
+function severityClass(value: AlertInstance["severity"]) {
+  if (value === "critical") {
+    return "border-red-400/30 bg-red-500/10 text-red-700"
+  }
+  if (value === "warning") {
+    return "border-amber-400/30 bg-amber-500/10 text-amber-700"
+  }
+  return "border-sky-400/30 bg-sky-500/10 text-sky-700"
+}
+
+function AlertsPanel() {
+  const [rows, setRows] = useState<AlertInstance[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const fetchRecentAlerts = async (loading = true) => {
+    if (loading) {
+      setIsLoading(true)
+    }
+
+    try {
+      const response = await fetch(
+        "/api/customer/alerts?mode=recent&status=open&seen=false&limit=6",
+        {
+          cache: "no-store",
+        }
+      )
+
+      if (!response.ok) {
+        toast.error("Unable to load alerts")
+        return
+      }
+
+      const data = (await response.json()) as { rows?: AlertInstance[] }
+      setRows(data.rows ?? [])
+    } catch {
+      toast.error("Unable to load alerts")
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    void fetchRecentAlerts(true)
+  }, [])
+
+  const markSeen = async (id: string) => {
+    try {
+      const response = await fetch(`/api/customer/alerts/${id}/seen`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        toast.error("Unable to mark alert as seen")
+        return
+      }
+
+      setRows((current) => current.filter((row) => row.id !== id))
+      toast.success("Alert marked as seen")
+    } catch {
+      toast.error("Unable to mark alert as seen")
+    }
+  }
 
   return (
     <aside className="flex h-full min-w-0 flex-col rounded-lg border border-border bg-card shadow-sm">
       <div className="flex items-start justify-between gap-3 border-b border-border p-3">
         <div className="min-w-0">
           <h2 className="text-xl leading-tight font-semibold text-foreground sm:text-2xl">
-            Alarms
+            Alerts
           </h2>
           <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Clock3 className="h-4 w-4" />
-            <span>Realtime - placeholder alerts</span>
+            <span>Realtime - active alerts</span>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            aria-label="Search placeholder alerts"
+            aria-label="Refresh alerts"
             className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => {
+              setIsRefreshing(true)
+              void fetchRecentAlerts(false)
+            }}
           >
-            <Search className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Filter placeholder alerts"
-            className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Filter className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Column placeholder alerts"
-            className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Columns3 className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
@@ -170,7 +216,7 @@ function AlarmsPlaceholderPanel() {
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="w-10 px-4 py-3">
-                <span className="block h-4 w-4 rounded border border-muted-foreground/50" />
+                <Bell className="h-4 w-4" />
               </th>
               <th className="px-3 py-3 font-medium">Start time</th>
               <th className="px-3 py-3 font-medium">Type</th>
@@ -180,36 +226,58 @@ function AlarmsPlaceholderPanel() {
             </tr>
           </thead>
           <tbody>
-            {placeholders.map((item, index) => (
-              <tr key={item.label} className="border-b border-border/80">
-                <td className="px-4 py-4">
-                  <span className="block h-4 w-4 rounded border border-muted-foreground/50" />
-                </td>
-                <td className="px-3 py-4 text-xs text-muted-foreground">
-                  Placeholder
-                  <br />
-                  row {index + 1}
-                </td>
-                <td className="px-3 py-4 font-medium">{item.label}</td>
-                <td className="px-3 py-4">
-                  <span className="rounded-full border border-dashed border-muted-foreground/40 px-2 py-1 text-xs font-semibold text-muted-foreground">
-                    {item.severity}
-                  </span>
-                </td>
-                <td className="px-3 py-4 text-xs text-muted-foreground">
-                  Placeholder
-                  <br />
-                  not connected
-                </td>
-                <td className="px-3 py-4">
-                  <div className="flex items-center justify-end gap-2 text-muted-foreground">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <Check className="h-4 w-4" />
-                    <X className="h-4 w-4" />
-                  </div>
+            {isLoading ? (
+              <tr>
+                <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
+                  Loading alerts...
                 </td>
               </tr>
-            ))}
+            ) : rows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-4 text-muted-foreground" colSpan={6}>
+                  No active unseen alerts.
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id} className="border-b border-border/80">
+                  <td className="px-4 py-4">
+                    <Bell className="h-4 w-4 text-muted-foreground" />
+                  </td>
+                  <td className="px-3 py-4 text-xs text-muted-foreground">
+                    {new Date(row.triggeredAt).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-4 text-xs font-medium">
+                    {row.type === "metric" ? "Metric" : "Device Offline"}
+                    <br />
+                    <span className="text-muted-foreground">
+                      {row.meterKey ? `Meter ${row.meterKey}` : "Unit level"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${severityClass(row.severity)}`}>
+                      {row.severity}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4 text-xs text-muted-foreground">
+                    {row.status}
+                  </td>
+                  <td className="px-3 py-4">
+                    <button
+                      type="button"
+                      aria-label={`Mark alert ${row.id} as seen`}
+                      className="inline-flex items-center justify-end gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      onClick={() => {
+                        void markSeen(row.id)
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Seen
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -217,9 +285,9 @@ function AlarmsPlaceholderPanel() {
       <div className="flex items-center justify-between gap-3 border-t border-border p-3 text-xs text-muted-foreground">
         <div className="flex min-w-0 items-center gap-2">
           <Bell className="h-4 w-4 shrink-0" />
-          <span className="truncate">Alarm integration placeholder</span>
+          <span className="truncate">Live alert stream</span>
         </div>
-        <span className="shrink-0">0 active</span>
+        <span className="shrink-0">{rows.length} active</span>
       </div>
     </aside>
   )
@@ -482,7 +550,7 @@ export function EmsDashboardGrid({
       </div>
 
       <div className="min-w-0 xl:col-span-4 xl:h-full">
-        <AlarmsPlaceholderPanel />
+        <AlertsPanel />
       </div>
 
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">

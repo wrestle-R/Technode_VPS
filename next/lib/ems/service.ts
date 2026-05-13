@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client"
 
+import {
+  evaluateAlertRulesForConnectionEvent,
+  evaluateAlertRulesForDataEvent,
+} from "@/lib/alerts/engine"
 import { prisma } from "@/lib/prisma"
 import type {
   EmsConnectionPayload,
@@ -214,6 +218,18 @@ export async function ingestEmsPayload({
     },
   })
 
+  try {
+    await evaluateAlertRulesForDataEvent({
+      unitDbId: unit.id,
+      unitId: payload.id,
+      meters: payload.meters,
+      status: payload.status,
+      timestamp: payload.timestamp,
+    })
+  } catch (error) {
+    console.error("[ems:alerts] data evaluation failed", error)
+  }
+
   return {
     unitId: payload.id,
     unitDbId: unit.id.toString(),
@@ -263,6 +279,17 @@ export async function ingestEmsConnectionPayload({
       meter_payload: asJson({}),
     },
   })
+
+  try {
+    await evaluateAlertRulesForConnectionEvent({
+      unitDbId: unit.id,
+      unitId: payload.id,
+      state: payload.state,
+      timestamp: payload.timestamp,
+    })
+  } catch (error) {
+    console.error("[ems:alerts] connection evaluation failed", error)
+  }
 
   return {
     unitId: payload.id,

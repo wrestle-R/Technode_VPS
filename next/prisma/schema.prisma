@@ -7,6 +7,38 @@ datasource db {
   url      = env("PRISMA_DATABASE_URL")
 }
 
+enum AlertRuleType {
+  metric
+  offline
+}
+
+enum AlertSeverity {
+  critical
+  warning
+  info
+}
+
+enum AlertStatus {
+  open
+  closed
+}
+
+enum AlertMeterScope {
+  single
+  multiple
+  all
+}
+
+enum AlertDirection {
+  above
+  below
+}
+
+enum AlertEmailDeliveryStatus {
+  sent
+  failed
+}
+
 model Company {
   company_id         Int      @id @default(autoincrement())
   name               String   @db.VarChar(100)
@@ -31,6 +63,9 @@ model Customer {
   password                  String?  @db.VarChar(255)
   company                   Company  @relation(fields: [company_id], references: [company_id], onDelete: Cascade)
   ems_units                 EmsUnit[]
+  alert_recipients          AlertRecipient[]
+  alert_rules               AlertRule[]
+  alert_instances           AlertInstance[]
 
   @@unique([company_id, email])
   @@index([company_id])
@@ -87,4 +122,89 @@ model EmsLog {
   @@index([ems_unit_id, device_timestamp(sort: Desc)])
   @@index([created_at])
   @@map("ems_logs")
+}
+
+model AlertRecipient {
+  id          BigInt   @id @default(autoincrement())
+  customer_id Int
+  name        String   @db.VarChar(120)
+  email       String   @db.VarChar(150)
+  role        String?  @db.VarChar(120)
+  phone       String?  @db.VarChar(40)
+  enabled     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  customer    Customer @relation(fields: [customer_id], references: [customer_id], onDelete: Cascade)
+
+  @@unique([customer_id, email])
+  @@index([customer_id, enabled])
+  @@map("alert_recipients")
+}
+
+model AlertRule {
+  id               BigInt          @id @default(autoincrement())
+  customer_id      Int
+  unit_id          String          @db.VarChar(64)
+  type             AlertRuleType
+  severity         AlertSeverity
+  enabled          Boolean         @default(true)
+  meter_scope      AlertMeterScope
+  meter_keys       String[]        @default([])
+  field_key        String?         @db.VarChar(120)
+  direction        AlertDirection?
+  threshold_value  Float?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  customer         Customer        @relation(fields: [customer_id], references: [customer_id], onDelete: Cascade)
+  alert_instances  AlertInstance[]
+
+  @@index([customer_id, unit_id, enabled, type])
+  @@index([customer_id, enabled])
+  @@map("alert_rules")
+}
+
+model AlertInstance {
+  id               BigInt       @id @default(autoincrement())
+  customer_id      Int
+  rule_id          BigInt
+  unit_id          String       @db.VarChar(64)
+  meter_key        String?      @db.VarChar(64)
+  field_key        String?      @db.VarChar(120)
+  type             AlertRuleType
+  severity         AlertSeverity
+  status           AlertStatus
+  title            String       @db.VarChar(255)
+  message          String       @db.VarChar(500)
+  context_json     Json
+  trigger_value    Float?
+  threshold_value  Float?
+  seen_at          DateTime?
+  triggered_at     DateTime
+  resolved_at      DateTime?
+  last_emailed_at  DateTime?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+  customer         Customer     @relation(fields: [customer_id], references: [customer_id], onDelete: Cascade)
+  rule             AlertRule    @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+  alert_email_logs AlertEmailLog[]
+
+  @@index([customer_id, status, triggered_at(sort: Desc)])
+  @@index([customer_id, seen_at, status])
+  @@index([rule_id, unit_id, meter_key, field_key, status])
+  @@index([unit_id, type, severity])
+  @@map("alert_instances")
+}
+
+model AlertEmailLog {
+  id                 BigInt                   @id @default(autoincrement())
+  alert_instance_id  BigInt
+  recipient_email    String                   @db.VarChar(150)
+  status             AlertEmailDeliveryStatus
+  error_message      String?                  @db.VarChar(500)
+  sent_at            DateTime                 @default(now())
+  alert_instance     AlertInstance            @relation(fields: [alert_instance_id], references: [id], onDelete: Cascade)
+
+  @@index([alert_instance_id, sent_at(sort: Desc)])
+  @@index([recipient_email, sent_at(sort: Desc)])
+  @@map("alert_email_logs")
 }

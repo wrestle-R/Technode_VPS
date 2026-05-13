@@ -13,6 +13,9 @@ import {
   Cpu,
   Zap,
   CircuitBoard,
+  BellRing,
+  Settings2,
+  Users,
   Wifi,
   WifiOff,
 } from "lucide-react"
@@ -137,6 +140,51 @@ export function CustomerSidebar({
                 >
                   <Home />
                   <span>Dashboard</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive("/alerts")}
+                  tooltip="Alerts"
+                  onClick={() => router.push("/alerts")}
+                  className={cn(
+                    state === "expanded" &&
+                      isActive("/alerts") &&
+                      "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                  )}
+                >
+                  <BellRing />
+                  <span>Alerts</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive("/alerts/settings")}
+                  tooltip="Alert Settings"
+                  onClick={() => router.push("/alerts/settings")}
+                  className={cn(
+                    state === "expanded" &&
+                      isActive("/alerts/settings") &&
+                      "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                  )}
+                >
+                  <Settings2 />
+                  <span>Alert Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive("/mailing-list")}
+                  tooltip="Mailing List"
+                  onClick={() => router.push("/mailing-list")}
+                  className={cn(
+                    state === "expanded" &&
+                      isActive("/mailing-list") &&
+                      "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                  )}
+                >
+                  <Users />
+                  <span>Mailing List</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
