@@ -42,7 +42,7 @@ export default async function CustomerLayout({
       }}
     >
       <CustomerEmsProvider initialUnits={units}>
-        <SidebarProvider defaultOpen={false}>
+        <SidebarProvider defaultOpen={true}>
           <CustomerSidebar
             companySidebarImageUrl={session.companySidebarImageUrl}
             companyName={session.companyName}

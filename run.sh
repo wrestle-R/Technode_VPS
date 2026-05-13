@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEXT_DIR="${ROOT_DIR}/next"
 EMS_DIR="${ROOT_DIR}/test/ems"
+DEV_PORT=3000
 
 PIDS=()
 
@@ -31,7 +32,7 @@ start_background() {
 
 start_next_server() {
   cd "${NEXT_DIR}"
-  npm run dev
+  PORT="${DEV_PORT}" npm run dev
 }
 
 start_ems_mqtt_worker() {
@@ -50,6 +51,7 @@ if [[ ! -x "${EMS_DIR}/run_mqtt.sh" ]]; then
 fi
 
 start_background "Next server" "next" start_next_server
+echo "[run] development server target port: ${DEV_PORT}"
 
 echo "[run] docker containers:"
 docker ps
