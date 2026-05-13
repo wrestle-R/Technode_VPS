@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -245,9 +244,6 @@ export function ExpandedChartPageClient({
                   tickFormatter={(value) => `${value} V`}
                 />
                 <Tooltip />
-                <ReferenceLine y={235} stroke="#f1c40f" strokeWidth={2} />
-                <ReferenceLine y={205} stroke="#f1c40f" strokeWidth={2} />
-                <ReferenceLine y={200} stroke="#ef4444" strokeWidth={2} />
                 <Line
                   type="monotone"
                   dataKey="voltage"
@@ -312,6 +308,7 @@ export function ExpandedChartPageClient({
                 <YAxis
                   tick={axisTick}
                   width={54}
+                  domain={["dataMin - 0.5", "dataMax + 0.5"]}
                   tickFormatter={(value) => `${value} A`}
                 />
                 <Tooltip />
@@ -322,6 +319,9 @@ export function ExpandedChartPageClient({
                   stroke="#f97316"
                   fill="url(#expanded-amperage-fill)"
                   strokeWidth={2}
+                  dot={{ r: 3, strokeWidth: 2, fill: "#fff" }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
                 />
                 <Brush dataKey="label" height={24} travellerWidth={8} />
               </AreaChart>

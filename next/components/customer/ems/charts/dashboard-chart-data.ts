@@ -23,6 +23,18 @@ function numberMetric(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
+function countNumericValues<T>(
+  points: T[],
+  valueForPoint: (point: T) => unknown
+) {
+  return points.reduce((count, point) => {
+    const value = valueForPoint(point)
+    return typeof value === "number" && Number.isFinite(value)
+      ? count + 1
+      : count
+  }, 0)
+}
+
 export function latestValue(
   points: DashboardPoint[],
   key: keyof DashboardPoint
@@ -71,12 +83,22 @@ export function buildAmperagePoints(
   trendRows: TrendPoint[],
   hourlyCurrentPoints: HourlyCurrentPoint[]
 ): DashboardPoint[] {
-  const hasHourlyCurrent = hourlyCurrentPoints.some(
-    (point) => typeof point.averageCurrent === "number"
+  const dashboardPoints = buildDashboardPoints(trendRows)
+  const hourlyCurrentCount = countNumericValues(
+    hourlyCurrentPoints,
+    (point) => point.averageCurrent
+  )
+  const dashboardCurrentCount = countNumericValues(
+    dashboardPoints,
+    (point) => point.amperage
   )
 
-  if (!hasHourlyCurrent) {
-    return buildDashboardPoints(trendRows)
+  if (hourlyCurrentCount === 0) {
+    return dashboardPoints
+  }
+
+  if (hourlyCurrentCount < 2 && dashboardCurrentCount >= 2) {
+    return dashboardPoints
   }
 
   return hourlyCurrentPoints.map((point) => ({

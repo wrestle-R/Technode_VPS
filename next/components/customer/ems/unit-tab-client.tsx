@@ -802,10 +802,28 @@ export function CustomerUnitTabClient({
     return (
       <div className="space-y-6">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
-          <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
-          <p className="text-sm text-muted-foreground">
-            {selectedMeter?.name ?? (effectiveMeterKey || "Selected meter")}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
+              <p className="text-sm text-muted-foreground">
+                {selectedMeter?.name ?? (effectiveMeterKey || "Selected meter")}
+              </p>
+            </div>
+            <label className="grid gap-2 text-sm sm:min-w-56">
+              <span className="font-medium">Meter</span>
+              <select
+                className="h-10 rounded-xl border border-input bg-white/90 px-3"
+                value={effectiveMeterKey}
+                onChange={(event) => setSelectedMeterKey(event.target.value)}
+              >
+                {availableMeters.map((meter) => (
+                  <option key={meter.meterKey} value={meter.meterKey}>
+                    {meter.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
 
         <EmsDashboardGrid

@@ -132,7 +132,7 @@ export function CustomerSidebar({
                   className={cn(
                     state === "expanded" &&
                       isActive("/dashboard") &&
-                      "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                      "bg-white/12 font-medium text-white shadow-[inset_3px_0_0_rgb(103_232_249)]"
                   )}
                 >
                   <Home />
@@ -165,7 +165,9 @@ export function CustomerSidebar({
                       <SidebarMenuButton
                         isActive={isUnitActive}
                         tooltip={unit.unitId}
-                        onClick={() => router.push(overviewHrefForUnit(unit.unitId))}
+                        onClick={() =>
+                          router.push(overviewHrefForUnit(unit.unitId))
+                        }
                         className="cursor-pointer"
                       >
                         <DeviceIcon className="h-4 w-4 shrink-0" />
@@ -190,12 +192,14 @@ export function CustomerSidebar({
                           <SidebarMenuButton
                             isActive={pathname.includes(`/ems/${unit.unitId}`)}
                             tooltip={unit.unitId}
-                            onClick={() => router.push(overviewHrefForUnit(unit.unitId))}
+                            onClick={() =>
+                              router.push(overviewHrefForUnit(unit.unitId))
+                            }
                             className={cn(
                               "cursor-pointer",
                               state === "expanded" &&
                                 pathname.includes(`/ems/${unit.unitId}`) &&
-                                "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                                "bg-white/12 font-medium text-white shadow-[inset_3px_0_0_rgb(103_232_249)]"
                             )}
                           >
                             <DeviceIcon className="h-4 w-4 shrink-0" />
@@ -229,7 +233,7 @@ export function CustomerSidebar({
                             <CollapsibleTrigger asChild>
                               <button
                                 type="button"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sky-100/70 transition hover:bg-white/12 hover:text-white"
+                                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-sky-100/70 transition hover:bg-white/12 hover:text-white"
                                 aria-label={`Toggle ${unit.unitId} menu`}
                               >
                                 <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
@@ -329,9 +333,13 @@ export function CustomerSidebar({
               onClick={() => router.push("/profile")}
               className={cn(
                 "h-auto w-full py-2.5",
-                state === "collapsed" && "h-8 justify-center px-0 py-0",
+                state === "collapsed" && "h-10 justify-center px-0 py-0",
                 isActive("/profile")
-                  ? "border-l-4 border-primary bg-primary/10"
+                  ? cn(
+                      "bg-primary/10",
+                      state === "expanded" &&
+                        "shadow-[inset_3px_0_0_rgb(103_232_249)]"
+                    )
                   : "hover:bg-white/8"
               )}
             >

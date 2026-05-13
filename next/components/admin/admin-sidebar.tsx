@@ -204,7 +204,7 @@ export function AdminSidebar() {
                               "cursor-pointer",
                               state === "expanded" &&
                                 isActive(item.href, true) &&
-                                "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                                "bg-white/12 font-medium text-white shadow-[inset_3px_0_0_rgb(103_232_249)]"
                             )}
                           >
                             <item.icon />
@@ -245,7 +245,7 @@ export function AdminSidebar() {
                         className={cn(
                           state === "expanded" &&
                             isActive(item.href, true) &&
-                            "border-l-4 border-cyan-300 bg-white/12 pl-2 font-medium text-white"
+                            "bg-white/12 font-medium text-white shadow-[inset_3px_0_0_rgb(103_232_249)]"
                         )}
                       >
                         <item.icon />

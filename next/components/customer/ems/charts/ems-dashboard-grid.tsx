@@ -23,7 +23,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -62,6 +61,7 @@ function ChartCard({
   color,
   isReady,
   expandHref,
+  meterName,
   children,
 }: {
   title: string
@@ -71,6 +71,7 @@ function ChartCard({
   color: string
   isReady: boolean
   expandHref: string
+  meterName: string
   children: React.ReactNode
 }) {
   return (
@@ -107,7 +108,7 @@ function ChartCard({
             className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: color }}
           />
-          <span className="truncate">Smart Meter A</span>
+          <span className="truncate">{meterName}</span>
         </div>
         <div className="text-right">
           <p className="text-muted-foreground">Avg</p>
@@ -279,6 +280,7 @@ export function EmsDashboardGrid({
             color={phaseColors.green}
             isReady={isChartReady}
             expandHref={expandedHref("voltage")}
+            meterName={meterName}
           >
             <ResponsiveContainer
               width="100%"
@@ -298,9 +300,6 @@ export function EmsDashboardGrid({
                   tickFormatter={(value) => `${value} V`}
                 />
                 <Tooltip contentStyle={tooltipStyle} />
-                <ReferenceLine y={235} stroke="#f1c40f" strokeWidth={2} />
-                <ReferenceLine y={205} stroke="#f1c40f" strokeWidth={2} />
-                <ReferenceLine y={200} stroke="#ef4444" strokeWidth={2} />
                 <Line
                   type="monotone"
                   dataKey="voltage"
@@ -328,6 +327,7 @@ export function EmsDashboardGrid({
             color="#3498db"
             isReady={isChartReady}
             expandHref={expandedHref("energy")}
+            meterName={meterName}
           >
             <ResponsiveContainer
               width="100%"
@@ -372,6 +372,7 @@ export function EmsDashboardGrid({
             color="#16864a"
             isReady={isChartReady}
             expandHref={expandedHref("frequency")}
+            meterName={meterName}
           >
             <ResponsiveContainer
               width="100%"
@@ -419,6 +420,7 @@ export function EmsDashboardGrid({
             color="#f97316"
             isReady={isChartReady}
             expandHref={expandedHref("amperage")}
+            meterName={meterName}
           >
             <ResponsiveContainer
               width="100%"
@@ -451,6 +453,7 @@ export function EmsDashboardGrid({
                 <YAxis
                   tick={axisTick}
                   width={42}
+                  domain={["dataMin - 0.5", "dataMax + 0.5"]}
                   tickFormatter={(value) => `${value} A`}
                 />
                 <Tooltip contentStyle={tooltipStyle} />
@@ -461,6 +464,9 @@ export function EmsDashboardGrid({
                   stroke="#f97316"
                   fill="url(#amperage-fill)"
                   strokeWidth={2}
+                  dot={{ r: 3, strokeWidth: 2, fill: "#fff" }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
                 />
                 <Brush
                   dataKey="label"
@@ -482,7 +488,7 @@ export function EmsDashboardGrid({
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
         {[
           ["Meter", meterName],
-          ["Readings", String(trendRows.length)],
+          ["Latest frequency", `${formatNumber(latestFrequency, 2)} Hz`],
           ["Latest voltage", `${formatNumber(latestVoltage, 2)} V`],
           ["Latest amperage", `${formatNumber(latestAmperage, 2)} A`],
         ].map(([label, value]) => (
