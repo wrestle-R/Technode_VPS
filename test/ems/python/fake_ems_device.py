@@ -13,7 +13,7 @@ import paho.mqtt.client as mqtt
 
 BROKER_HOST = os.getenv("EMS_TEST_BROKER_HOST", "localhost")
 BROKER_PORT = int(os.getenv("EMS_TEST_BROKER_PORT", "1883"))
-UNIT_ID = os.getenv("EMS_TEST_UNIT_ID", "862360079818097")
+UNIT_ID = os.getenv("EMS_TEST_UNIT_ID", "862360079818095")
 CONNECTION_TOPIC = os.getenv("EMS_TEST_CONNECTION_TOPIC", f"/{UNIT_ID}/connection")
 DATA_TOPIC = os.getenv("EMS_TEST_DATA_TOPIC", f"/{UNIT_ID}/data")
 PUBLISH_INTERVAL_SECONDS = int(os.getenv("EMS_TEST_INTERVAL_SECONDS", "10"))

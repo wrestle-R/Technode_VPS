@@ -51,6 +51,38 @@ function meterMetricByAliases(meter: MeterEntry, aliases: string[]) {
   return metricByAliases(meter.metrics, aliases)
 }
 
+function meterMetricByKey(meter: MeterEntry, key: string) {
+  const normalizedKey = key.trim().toUpperCase()
+  const metric = meter.metrics.find(
+    (entry) => entry.key.trim().toUpperCase() === normalizedKey
+  )
+  return metric?.value ?? null
+}
+
+function averageFinite(values: Array<number | null>) {
+  const usable = values.filter((value): value is number => value != null)
+  if (usable.length === 0) {
+    return null
+  }
+  return usable.reduce((sum, value) => sum + value, 0) / usable.length
+}
+
+function meterLineToLineVoltage(meter: MeterEntry) {
+  return averageFinite([
+    meterMetricByKey(meter, "VRY"),
+    meterMetricByKey(meter, "VYB"),
+    meterMetricByKey(meter, "VBR"),
+  ])
+}
+
+function meterLineToNeutralVoltage(meter: MeterEntry) {
+  return averageFinite([
+    meterMetricByKey(meter, "VRN"),
+    meterMetricByKey(meter, "VYN"),
+    meterMetricByKey(meter, "VBN"),
+  ])
+}
+
 function meterFromLog(log: UnitLog, meterKey: string) {
   return log.meters.find((meter) => meter.meterKey === meterKey) ?? null
 }
@@ -60,7 +92,10 @@ function buildMeterRows(
   labelOverrides: Record<string, string | null>
 ): MeterRow[] {
   return unit.latestMeters.map((meter) => {
-    const voltage = meterMetricByAliases(meter, ["voltage", "vll", "vr", "vy", "vb", "volt"])
+    const voltage =
+      meterLineToLineVoltage(meter) ??
+      meterLineToNeutralVoltage(meter) ??
+      meterMetricByAliases(meter, ["voltage", "vll", "vr", "vy", "vb", "volt"])
     const amperage = meterMetricByAliases(meter, ["current", "amp", "ir", "iy", "ib"])
     const power = meterMetricByAliases(meter, ["kw", "power", "watt", "totalkw"])
 
@@ -88,9 +123,8 @@ function buildVoltageTrend(unit: CustomerUnitDetail, rows: MeterRow[]) {
 
     for (const meter of rows) {
       const entry = meterFromLog(log, meter.meterKey)
-      row[meter.meterKey] = entry
-        ? metricByAliases(entry.metrics, ["voltage", "vll", "vr", "vy", "vb", "volt"])
-        : null
+      row[`${meter.meterKey}__ll`] = entry ? meterLineToLineVoltage(entry) : null
+      row[`${meter.meterKey}__ln`] = entry ? meterLineToNeutralVoltage(entry) : null
     }
 
     return row
@@ -277,6 +311,9 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
     <div className="mx-auto grid w-full max-w-[1700px] gap-3 xl:grid-cols-12">
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
         <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Voltage</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Line-to-Line and Line-to-Neutral in one trend
+        </p>
         <div className="mt-2 h-[220px] sm:h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={voltageTrend} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
@@ -286,12 +323,24 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
               <Tooltip />
               {rows.map((meter, index) => (
                 <Line
-                  key={meter.meterKey}
+                  key={`${meter.meterKey}__ll`}
                   type="monotone"
-                  dataKey={meter.meterKey}
-                  name={meter.name}
+                  dataKey={`${meter.meterKey}__ll`}
+                  name={`${meter.name} (L-L)`}
                   dot={false}
                   strokeWidth={2}
+                  stroke={seriesColors[index % seriesColors.length]}
+                />
+              ))}
+              {rows.map((meter, index) => (
+                <Line
+                  key={`${meter.meterKey}__ln`}
+                  type="monotone"
+                  dataKey={`${meter.meterKey}__ln`}
+                  name={`${meter.name} (L-N)`}
+                  dot={false}
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
                   stroke={seriesColors[index % seriesColors.length]}
                 />
               ))}
