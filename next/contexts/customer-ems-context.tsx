@@ -59,6 +59,7 @@ function summarizeUnit(unit: CustomerUnitDetail): CustomerUnitSummary {
   return {
     id: unit.id,
     unitId: unit.unitId,
+    displayName: unit.displayName,
     status: unit.status,
     locationLabel: unit.locationLabel,
     latitude: unit.latitude,
@@ -77,9 +78,16 @@ function mergeUnitSummary(
     return next
   }
 
-  return toTimestamp(next.lastSeenAt) >= toTimestamp(current.lastSeenAt)
-    ? next
-    : current
+  const preferred =
+    toTimestamp(next.lastSeenAt) >= toTimestamp(current.lastSeenAt)
+      ? next
+      : current
+  const fallback = preferred === next ? current : next
+
+  return {
+    ...preferred,
+    displayName: preferred.displayName ?? fallback.displayName ?? null,
+  }
 }
 
 function mergeUnitDetail(
@@ -90,7 +98,14 @@ function mergeUnitDetail(
     return next
   }
 
-  return latestLogTimestamp(next) >= latestLogTimestamp(current) ? next : current
+  const preferred =
+    latestLogTimestamp(next) >= latestLogTimestamp(current) ? next : current
+  const fallback = preferred === next ? current : next
+
+  return {
+    ...preferred,
+    displayName: preferred.displayName ?? fallback.displayName ?? null,
+  }
 }
 
 export function CustomerEmsProvider({

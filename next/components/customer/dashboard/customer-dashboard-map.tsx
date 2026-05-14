@@ -13,6 +13,7 @@ const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { 
 export type CustomerDeviceMapData = {
   id: string
   unitId: string
+  displayName: string | null
   latitude: number | null
   longitude: number | null
   deviceType: string | null
@@ -94,7 +95,9 @@ export function CustomerDashboardMap({ devices }: { devices: CustomerDeviceMapDa
                   <Popup autoPan={false}>
                     <div className="-mx-[19px] -my-[13px] min-w-[150px] p-3 text-foreground">
                       <div className="flex flex-col gap-0.5">
-                        <h4 className="text-[13px] font-semibold leading-none">{device.unitId}</h4>
+                        <h4 className="text-[13px] font-semibold leading-none">
+                          {device.displayName ?? device.unitId}
+                        </h4>
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                           {device.deviceType ?? "EMS"}
                         </p>

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import { useOptionalCustomerEms } from "@/contexts/customer-ems-context";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -13,6 +14,7 @@ import {
 
 export function AppBreadcrumb({ className }: { className?: string }) {
   const pathname = usePathname();
+  const ems = useOptionalCustomerEms();
   const pathnames = pathname.split("/").filter((x) => x);
   const isAdminArea = pathname.startsWith("/admin");
 
@@ -66,10 +68,16 @@ export function AppBreadcrumb({ className }: { className?: string }) {
 
           const to = `/${pathnames.slice(0, index + 1).join("/")}`;
           const isLast = index === pathnames.length - 1;
+          const decodedValue = decodeURIComponent(value);
+          const unitDisplayName =
+            (ems?.units ?? []).find((unit) => unit.unitId === decodedValue)?.displayName?.trim() ??
+            null;
 
-          const displayName = value
-            .replace(/-/g, " ")
-            .replace(/\b\w/g, (l) => l.toUpperCase());
+          const displayName = unitDisplayName
+            ? unitDisplayName
+            : decodedValue
+                .replace(/-/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase());
 
           return (
             <React.Fragment key={to}>

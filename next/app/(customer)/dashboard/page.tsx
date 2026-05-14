@@ -22,6 +22,7 @@ export default async function CustomerDashboardPage() {
   const mapDevices: CustomerDeviceMapData[] = units.map((unit) => ({
     id: unit.id,
     unitId: unit.unitId,
+    displayName: unit.displayName,
     latitude: unit.latitude,
     longitude: unit.longitude,
     deviceType: unit.deviceType,

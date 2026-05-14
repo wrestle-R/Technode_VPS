@@ -71,7 +71,7 @@ function reportRangeLabel({
 }
 
 export function EmsReportsPanel({
-  unitId,
+  unitDisplayName,
   effectiveMeterKey,
   availableMeters,
   onMeterChange,
@@ -94,7 +94,7 @@ export function EmsReportsPanel({
   reportRowsInRangeCount,
   isReportRowsInRangeCountLoading,
 }: {
-  unitId: string
+  unitDisplayName: string
   effectiveMeterKey: string
   availableMeters: Array<{ meterKey: string; name: string }>
   onMeterChange: (nextMeterKey: string) => void
@@ -231,7 +231,7 @@ export function EmsReportsPanel({
               <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
                 EMS Reports
               </p>
-              <h1 className="mt-1 text-2xl font-semibold">{unitId}</h1>
+              <h1 className="mt-1 text-2xl font-semibold">{unitDisplayName}</h1>
               <p className="text-sm text-muted-foreground">Last updated: {latestTimestamp}</p>
             </div>
             <div className="flex items-center gap-3">
@@ -591,9 +591,9 @@ export function EmsReportsPanel({
                 </div>
                 <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
                   <p className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
-                    Unit ID
+                    Unit
                   </p>
-                  <p className="mt-1 text-sm font-semibold">{unitId}</p>
+                  <p className="mt-1 text-sm font-semibold">{unitDisplayName}</p>
                 </div>
               </div>
 

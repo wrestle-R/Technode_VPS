@@ -75,6 +75,7 @@ model Customer {
 model EmsUnit {
   id             BigInt    @id @default(autoincrement())
   unit_id        String    @unique @db.VarChar(64)
+  display_name   String?   @db.VarChar(120)
   customer_id    Int?
   location_label String?   @db.VarChar(120)
   latitude       Decimal?  @db.Decimal(10, 6)

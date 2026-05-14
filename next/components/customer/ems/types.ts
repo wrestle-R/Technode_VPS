@@ -22,6 +22,7 @@ export type UnitLog = {
 export type CustomerUnitSummary = {
   id: string
   unitId: string
+  displayName: string | null
   status: string
   locationLabel: string | null
   latitude: number | null
@@ -34,6 +35,7 @@ export type CustomerUnitSummary = {
 export type CustomerUnitDetail = {
   id: string
   unitId: string
+  displayName: string | null
   status: string
   locationLabel: string | null
   latitude: number | null

@@ -36,6 +36,16 @@ type MeterRow = {
 }
 
 const seriesColors = ["#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6"]
+const voltageSeriesColors = [
+  "#ef4444",
+  "#3b82f6",
+  "#22c55e",
+  "#f59e0b",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#14b8a6",
+]
 
 function metricByAliases(metrics: MetricValue[], aliases: string[]) {
   for (const metric of metrics) {
@@ -215,23 +225,130 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
   const [labelDrafts, setLabelDrafts] = useState<Record<string, string>>({})
   const [editingMeterKey, setEditingMeterKey] = useState<string | null>(null)
   const [savingMeterKey, setSavingMeterKey] = useState<string | null>(null)
+  const [hiddenVoltageSeriesKeys, setHiddenVoltageSeriesKeys] = useState<string[]>([])
+  const [hiddenEnergySeriesKeys, setHiddenEnergySeriesKeys] = useState<string[]>([])
+  const [hiddenPieSeriesKeys, setHiddenPieSeriesKeys] = useState<string[]>([])
+  const [hiddenAmperageSeriesKeys, setHiddenAmperageSeriesKeys] = useState<string[]>([])
+  const [hiddenCurveSeriesKeys, setHiddenCurveSeriesKeys] = useState<string[]>([])
 
   const rows = useMemo(() => buildMeterRows(unit, meterLabels), [meterLabels, unit])
+  const meterDisplayName = (row: MeterRow) => row.label?.trim() || row.name
 
   const voltageTrend = useMemo(() => buildVoltageTrend(unit, rows), [unit, rows])
   const ampTrend = useMemo(() => buildAmpTrend(unit, rows), [unit, rows])
   const energyBars = useMemo(() => buildEnergyBars(unit, rows), [unit, rows])
   const energyCurves = useMemo(() => buildEnergyCurves(unit, rows), [unit, rows])
   const curveMeters = rows.slice(0, 2)
+  const hiddenVoltageSeries = useMemo(
+    () => new Set(hiddenVoltageSeriesKeys),
+    [hiddenVoltageSeriesKeys]
+  )
+  const hiddenEnergySeries = useMemo(
+    () => new Set(hiddenEnergySeriesKeys),
+    [hiddenEnergySeriesKeys]
+  )
+  const hiddenPieSeries = useMemo(
+    () => new Set(hiddenPieSeriesKeys),
+    [hiddenPieSeriesKeys]
+  )
+  const hiddenAmperageSeries = useMemo(
+    () => new Set(hiddenAmperageSeriesKeys),
+    [hiddenAmperageSeriesKeys]
+  )
+  const hiddenCurveSeries = useMemo(
+    () => new Set(hiddenCurveSeriesKeys),
+    [hiddenCurveSeriesKeys]
+  )
+  const voltageSeries = useMemo(
+    () =>
+      rows.flatMap((meter, meterIndex) => [
+        {
+          key: `${meter.meterKey}__ll`,
+          name: `${meterDisplayName(meter)} (L-L)`,
+          color: voltageSeriesColors[(meterIndex * 2) % voltageSeriesColors.length],
+          dash: undefined as string | undefined,
+        },
+        {
+          key: `${meter.meterKey}__ln`,
+          name: `${meterDisplayName(meter)} (L-N)`,
+          color: voltageSeriesColors[(meterIndex * 2 + 1) % voltageSeriesColors.length],
+          dash: "6 4",
+        },
+      ]),
+    [rows]
+  )
 
   const pieData = useMemo(
     () =>
-      rows.map((row) => ({
-        name: row.name,
+      rows.map((row, index) => ({
+        meterKey: row.meterKey,
+        name: meterDisplayName(row),
         value: row.power ?? 0,
+        color: seriesColors[index % seriesColors.length],
       })),
     [rows]
   )
+  const pieDataVisible = useMemo(
+    () => pieData.filter((slice) => !hiddenPieSeries.has(slice.meterKey)),
+    [hiddenPieSeries, pieData]
+  )
+  const toggleSeries = (
+    key: string,
+    setHidden: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    setHidden((current) =>
+      current.includes(key)
+        ? current.filter((value) => value !== key)
+        : [...current, key]
+    )
+  }
+  const renderLegend = (
+    hidden: Set<string>,
+    setHidden: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    // eslint-disable-next-line react/display-name
+    return ({
+      payload,
+    }: {
+      payload?: ReadonlyArray<{
+        dataKey?: string | number | ((obj: unknown) => unknown)
+        value?: string
+        color?: string
+      }>
+    }) => {
+      if (!payload || payload.length === 0) {
+        return null
+      }
+      return (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {payload.map((entry, index) => {
+            const keyBase = typeof entry.dataKey === "function"
+              ? entry.value ?? `series-${index}`
+              : entry.dataKey ?? entry.value ?? index
+            const key = String(keyBase)
+            const isHidden = hidden.has(key)
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition ${isHidden ? "opacity-45" : "opacity-100"}`}
+                onClick={() => {
+                  toggleSeries(key, setHidden)
+                }}
+                title={isHidden ? "Click to show" : "Click to hide"}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: entry.color ?? "#64748b" }}
+                />
+                <span className={isHidden ? "line-through" : ""}>{entry.value ?? key}</span>
+              </button>
+            )
+          })}
+        </div>
+      )
+    }
+  }
   const statsSummary = useMemo(() => {
     const voltageValues = rows
       .map((row) => row.voltage)
@@ -311,9 +428,6 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
     <div className="mx-auto grid w-full max-w-[1700px] gap-3 xl:grid-cols-12">
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
         <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Voltage</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Line-to-Line and Line-to-Neutral in one trend
-        </p>
         <div className="mt-2 h-[220px] sm:h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={voltageTrend} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
@@ -321,30 +435,20 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
               <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
               <YAxis tick={{ fontSize: 10 }} width={28} />
               <Tooltip />
-              {rows.map((meter, index) => (
+              {voltageSeries.map((series) => (
                 <Line
-                  key={`${meter.meterKey}__ll`}
+                  key={series.key}
                   type="monotone"
-                  dataKey={`${meter.meterKey}__ll`}
-                  name={`${meter.name} (L-L)`}
+                  dataKey={series.key}
+                  name={series.name}
                   dot={false}
                   strokeWidth={2}
-                  stroke={seriesColors[index % seriesColors.length]}
+                  strokeDasharray={series.dash}
+                  stroke={series.color}
+                  hide={hiddenVoltageSeries.has(series.key)}
                 />
               ))}
-              {rows.map((meter, index) => (
-                <Line
-                  key={`${meter.meterKey}__ln`}
-                  type="monotone"
-                  dataKey={`${meter.meterKey}__ln`}
-                  name={`${meter.name} (L-N)`}
-                  dot={false}
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                  stroke={seriesColors[index % seriesColors.length]}
-                />
-              ))}
-              {!isMobile ? <Legend /> : null}
+              {!isMobile ? <Legend content={renderLegend(hiddenVoltageSeries, setHiddenVoltageSeriesKeys)} /> : null}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -352,7 +456,6 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
         <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy consumption</h2>
-        <p className="mt-1 text-sm text-muted-foreground">History</p>
         <div className="mt-2 h-[220px] sm:h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={energyBars} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
@@ -360,14 +463,15 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
               <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={24} />
               <YAxis tick={{ fontSize: 10 }} width={28} />
               <Tooltip />
-              {!isMobile ? <Legend formatter={(value) => <span className="px-1">{value}</span>} /> : null}
+              {!isMobile ? <Legend content={renderLegend(hiddenEnergySeries, setHiddenEnergySeriesKeys)} /> : null}
               {rows.map((meter, index) => (
                 <Bar
                   key={meter.meterKey}
                   dataKey={meter.meterKey}
-                  name={meter.name}
+                  name={meterDisplayName(meter)}
                   fill={seriesColors[index % seriesColors.length]}
                   radius={[2, 2, 0, 0]}
+                  hide={hiddenEnergySeries.has(meter.meterKey)}
                 />
               ))}
             </BarChart>
@@ -395,7 +499,7 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                   className="cursor-pointer border-b transition hover:bg-muted/35"
                   onClick={() => onMeterClick(row)}
                 >
-                  <td className="px-2 py-2.5 font-medium sm:py-3">{row.name}</td>
+                  <td className="px-2 py-2.5 font-medium sm:py-3">{meterDisplayName(row)}</td>
                   <td className="px-2 py-2.5 sm:py-3">
                     {editingMeterKey === row.meterKey ? (
                       <div
@@ -452,17 +556,48 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
         <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy consumption</h2>
         <div className="mt-2 h-[240px] sm:h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={isMobile ? 78 : 120} label={!isMobile}>
-                {pieData.map((slice, index) => (
-                  <Cell key={`${slice.name}-${index}`} fill={seriesColors[index % seriesColors.length]} />
+            <PieChart margin={{ top: 8, right: 8, left: 8, bottom: isMobile ? 8 : 22 }}>
+              <Pie
+                data={pieDataVisible}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy={isMobile ? "50%" : "46%"}
+                outerRadius={isMobile ? 76 : 112}
+                label={false}
+              >
+                {pieDataVisible.map((slice, index) => (
+                  <Cell key={`${slice.meterKey}-${index}`} fill={slice.color} />
                 ))}
               </Pie>
               <Tooltip />
-              {!isMobile ? <Legend /> : null}
             </PieChart>
           </ResponsiveContainer>
         </div>
+        {!isMobile ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {pieData.map((slice) => {
+              const hidden = hiddenPieSeries.has(slice.meterKey)
+              return (
+                <button
+                  key={slice.meterKey}
+                  type="button"
+                  className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition ${hidden ? "opacity-45" : "opacity-100"}`}
+                  onClick={() => {
+                    toggleSeries(slice.meterKey, setHiddenPieSeriesKeys)
+                  }}
+                  title={hidden ? "Click to show" : "Click to hide"}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: slice.color }}
+                  />
+                  <span className={hidden ? "line-through" : ""}>{slice.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
       </article>
 
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
@@ -474,16 +609,17 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
               <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
               <YAxis tick={{ fontSize: 10 }} width={28} />
               <Tooltip />
-              {!isMobile ? <Legend /> : null}
+              {!isMobile ? <Legend content={renderLegend(hiddenAmperageSeries, setHiddenAmperageSeriesKeys)} /> : null}
               {rows.map((meter, index) => (
                 <Area
                   key={meter.meterKey}
                   type="monotone"
                   dataKey={meter.meterKey}
-                  name={meter.name}
+                  name={meterDisplayName(meter)}
                   stroke={seriesColors[index % seriesColors.length]}
                   fill={seriesColors[index % seriesColors.length]}
                   fillOpacity={0.22}
+                  hide={hiddenAmperageSeries.has(meter.meterKey)}
                 />
               ))}
             </AreaChart>
@@ -494,7 +630,7 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
       <article className="rounded-xl border bg-card p-3 shadow-sm xl:col-span-4">
         <h2 className="text-2xl font-semibold leading-none sm:text-[28px] xl:text-[32px]">Energy Curves</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {curveMeters.map((meter) => meter.name).join(" vs ")}
+          {curveMeters.map((meter) => meterDisplayName(meter)).join(" vs ")}
         </p>
         <div className="mt-2 h-[240px] sm:h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -520,20 +656,22 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
               <Area
                 type="monotone"
                 dataKey={curveMeters[0]?.meterKey}
-                name={curveMeters[0]?.name}
+                name={curveMeters[0] ? meterDisplayName(curveMeters[0]) : undefined}
                 stroke="#3b82f6"
                 fill="url(#curve-blue)"
                 fillOpacity={1}
                 strokeWidth={2}
+                hide={curveMeters[0] ? hiddenCurveSeries.has(curveMeters[0].meterKey) : false}
               />
               <Area
                 type="monotone"
                 dataKey={curveMeters[1]?.meterKey}
-                name={curveMeters[1]?.name}
+                name={curveMeters[1] ? meterDisplayName(curveMeters[1]) : undefined}
                 stroke="#22c55e"
                 fill="url(#curve-green)"
                 fillOpacity={1}
                 strokeWidth={2}
+                hide={curveMeters[1] ? hiddenCurveSeries.has(curveMeters[1].meterKey) : false}
               />
               <Area
                 type="monotone"
@@ -543,8 +681,9 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
                 fill="url(#curve-red)"
                 fillOpacity={1}
                 strokeWidth={2}
+                hide={hiddenCurveSeries.has("total")}
               />
-              {!isMobile ? <Legend /> : null}
+              {!isMobile ? <Legend content={renderLegend(hiddenCurveSeries, setHiddenCurveSeriesKeys)} /> : null}
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -594,8 +733,10 @@ export function UnitOverviewPageClient({ unit }: { unit: CustomerUnitDetail }) {
         <h2 className="text-2xl font-semibold leading-none">Unit Snapshot</h2>
         <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-2">
           <div className="rounded-lg border bg-muted/25 p-2.5">
-            <p className="text-xs text-muted-foreground">Unit ID</p>
-            <p className="mt-1 font-mono text-sm">{unit.unitId}</p>
+            <p className="text-xs text-muted-foreground">Unit</p>
+            <p className="mt-1 text-sm font-semibold">
+              {unit.displayName?.trim() || unit.unitId}
+            </p>
           </div>
           <div className="rounded-lg border bg-muted/25 p-2.5">
             <p className="text-xs text-muted-foreground">Status</p>

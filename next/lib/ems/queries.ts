@@ -448,6 +448,7 @@ function formatUnit(unit: UnitWithLogs) {
   return {
     id: unit.id.toString(),
     unitId: unit.unit_id,
+    displayName: unit.display_name,
     customerId: unit.customer_id,
     customerName:
       unit.customer?.company.name ?? unit.customer?.customer_representative ?? null,
@@ -641,6 +642,7 @@ export async function getCustomerEmsUnits(customerId: number) {
     return {
       id: unit.id.toString(),
       unitId: unit.unit_id,
+      displayName: unit.display_name,
       status: inferUnitStatus(unit),
       locationLabel: unit.location_label,
       latitude: asNumber(unit.latitude),
@@ -686,6 +688,7 @@ export async function getCustomerEmsUnitDetail({
   return {
     id: unit.id.toString(),
     unitId: unit.unit_id,
+    displayName: unit.display_name,
     status: inferUnitStatus(unit),
     locationLabel: unit.location_label,
     latitude: asNumber(unit.latitude),

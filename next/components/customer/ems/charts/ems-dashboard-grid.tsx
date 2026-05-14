@@ -211,18 +211,18 @@ function AlertsPanel() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="min-w-[540px] text-sm">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <table className="w-full table-fixed text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="w-10 px-4 py-3">
+              <th className="w-10 px-3 py-3">
                 <Bell className="h-4 w-4" />
               </th>
-              <th className="px-3 py-3 font-medium">Start time</th>
-              <th className="px-3 py-3 font-medium">Type</th>
-              <th className="px-3 py-3 font-medium">Severity</th>
-              <th className="px-3 py-3 font-medium">Status</th>
-              <th className="px-3 py-3 font-medium" />
+              <th className="w-[26%] px-2 py-3 font-medium">Start time</th>
+              <th className="w-[30%] px-2 py-3 font-medium">Type</th>
+              <th className="w-[18%] px-2 py-3 font-medium">Severity</th>
+              <th className="w-[12%] px-2 py-3 font-medium">Status</th>
+              <th className="w-[14%] px-2 py-3 font-medium" />
             </tr>
           </thead>
           <tbody>
@@ -241,28 +241,28 @@ function AlertsPanel() {
             ) : (
               rows.map((row) => (
                 <tr key={row.id} className="border-b border-border/80">
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4">
                     <Bell className="h-4 w-4 text-muted-foreground" />
                   </td>
-                  <td className="px-3 py-4 text-xs text-muted-foreground">
+                  <td className="px-2 py-4 text-xs text-muted-foreground break-words">
                     {new Date(row.triggeredAt).toLocaleString()}
                   </td>
-                  <td className="px-3 py-4 text-xs font-medium">
+                  <td className="px-2 py-4 text-xs font-medium break-words">
                     {row.type === "metric" ? "Metric" : "Device Offline"}
                     <br />
                     <span className="text-muted-foreground">
                       {row.meterKey ? `Meter ${row.meterKey}` : "Unit level"}
                     </span>
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-2 py-4">
                     <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${severityClass(row.severity)}`}>
                       {row.severity}
                     </span>
                   </td>
-                  <td className="px-3 py-4 text-xs text-muted-foreground">
+                  <td className="px-2 py-4 text-xs text-muted-foreground">
                     {row.status}
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-2 py-4 text-right">
                     <button
                       type="button"
                       aria-label={`Mark alert ${row.id} as seen`}

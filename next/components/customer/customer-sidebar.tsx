@@ -77,6 +77,13 @@ export function CustomerSidebar({
     return deviceType === "ems" ? Zap : Cpu
   }
 
+  const unitDisplayName = (unit: { unitId: string; displayName: string | null }) =>
+    unit.displayName?.trim() || unit.unitId
+  const unitTooltipLabel = (unit: { unitId: string; displayName: string | null }) =>
+    unit.displayName?.trim()
+      ? `${unit.displayName.trim()} (${unit.unitId})`
+      : unit.unitId
+
   const overviewHrefForUnit = (unitId: string) =>
     `/devices/ems/${encodeURIComponent(unitId)}`
 
@@ -212,14 +219,18 @@ export function CustomerSidebar({
                     <SidebarMenuItem key={unit.unitId}>
                       <SidebarMenuButton
                         isActive={isUnitActive}
-                        tooltip={unit.unitId}
+                        tooltip={unitTooltipLabel(unit)}
                         onClick={() =>
                           router.push(overviewHrefForUnit(unit.unitId))
                         }
                         className="cursor-pointer"
                       >
                         <DeviceIcon className="h-4 w-4 shrink-0" />
-                        <span>{formatUnitId(unit.unitId)}</span>
+                        <span>
+                          {unit.displayName?.trim()
+                            ? `${unit.displayName.trim()} · ${formatUnitId(unit.unitId)}`
+                            : formatUnitId(unit.unitId)}
+                        </span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )
@@ -239,7 +250,7 @@ export function CustomerSidebar({
                         <div className="flex items-center gap-1">
                           <SidebarMenuButton
                             isActive={pathname.includes(`/ems/${unit.unitId}`)}
-                            tooltip={unit.unitId}
+                            tooltip={unitTooltipLabel(unit)}
                             onClick={() =>
                               router.push(overviewHrefForUnit(unit.unitId))
                             }
@@ -254,13 +265,15 @@ export function CustomerSidebar({
                             <span className="flex min-w-0 flex-1 flex-col leading-tight">
                               <span
                                 className={cn(
-                                  "text-[10px] font-semibold tracking-[0.18em] uppercase",
+                                  "text-[10px] font-semibold tracking-[0.18em]",
+                                  !unit.displayName?.trim() && "uppercase",
                                   pathname.includes(`/ems/${unit.unitId}`)
                                     ? "text-sky-100"
                                     : "text-sky-100/60"
                                 )}
                               >
-                                {getTypeLabel(unit.deviceType)}
+                                {unit.displayName?.trim() ??
+                                  getTypeLabel(unit.deviceType)}
                               </span>
                               <span className="truncate font-mono text-xs text-sky-50/70">
                                 {formatUnitId(unit.unitId)}
@@ -282,7 +295,7 @@ export function CustomerSidebar({
                               <button
                                 type="button"
                                 className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-sky-100/70 transition hover:bg-white/12 hover:text-white"
-                                aria-label={`Toggle ${unit.unitId} menu`}
+                                aria-label={`Toggle ${unitDisplayName(unit)} menu`}
                               >
                                 <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/unit:rotate-90" />
                               </button>

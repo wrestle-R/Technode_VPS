@@ -914,7 +914,7 @@ export function buildPrintableReportHtml(payload: PrintPayload) {
       <tbody>
         ${htmlSummaryRow("Total records in range", String(payload.rawReport.rows.length))}
         ${htmlSummaryRow("Date range", payload.dateRangeLabel)}
-        ${htmlSummaryRow("Unit ID", payload.unitId)}
+        ${htmlSummaryRow("Unit", payload.unitId)}
         ${htmlSummaryRow("Avg Energy", `${fixed(payload.rawReport.avgEnergy, 2)} kWh`)}
         ${htmlSummaryRow("Max Energy", `${fixed(payload.rawReport.maxEnergy, 2)} kWh`)}
         ${htmlSummaryRow("Avg Voltage", `${fixed(payload.rawReport.avgVoltage, 1)} V`)}
@@ -1154,7 +1154,7 @@ export function buildPrintableReportHtml(payload: PrintPayload) {
     <header class="header">
       <div>
         <h1>${escapeHtml(reportTitle)}</h1>
-        <p class="sub">Device: ${escapeHtml(payload.unitId)} | Customer: ${escapeHtml(company)}</p>
+        <p class="sub">Unit: ${escapeHtml(payload.unitId)} | Customer: ${escapeHtml(company)}</p>
         <p class="sub">Date Range: ${escapeHtml(payload.dateRangeLabel)} | Generated: ${escapeHtml(generatedAtText)}</p>
       </div>
       ${brand}

@@ -177,21 +177,32 @@ export function CustomerUnitTabClient({
   }, [initialUnit.unitId, refreshCurrentUnit])
 
   const availableMeters = useMemo(() => {
-    const map = new Map<string, { meterKey: string; name: string }>()
+    const map = new Map<string, { meterKey: string; name: string; label: string | null }>()
 
     for (const meter of unit.latestMeters) {
       map.set(meter.meterKey, {
         meterKey: meter.meterKey,
         name: meter.name,
+        label: meter.label ?? null,
       })
     }
 
     for (const log of unit.logs) {
       for (const meter of log.meters) {
-        if (!map.has(meter.meterKey)) {
+        const existing = map.get(meter.meterKey)
+        if (!existing) {
           map.set(meter.meterKey, {
             meterKey: meter.meterKey,
             name: meter.name,
+            label: meter.label ?? null,
+          })
+          continue
+        }
+
+        if (!existing.label && meter.label) {
+          map.set(meter.meterKey, {
+            ...existing,
+            label: meter.label,
           })
         }
       }
@@ -233,6 +244,7 @@ export function CustomerUnitTabClient({
     () => mapLogsForMeter(unit.logs, effectiveMeterKey),
     [effectiveMeterKey, unit.logs]
   )
+  const unitDisplayName = unit.displayName?.trim() || unit.unitId
 
   const pagedSelectedLogRows = useMemo(
     () => mapLogsForMeter(logsPageRows, effectiveMeterKey),
@@ -760,7 +772,7 @@ export function CustomerUnitTabClient({
         rawReport,
         analyticalReport,
         consumptionReport,
-        unitId: unit.unitId,
+        unitId: unitDisplayName,
         companyName: user?.companyName ?? "",
         dateRangeLabel: effectiveDateRangeLabel,
         unitPrice,
@@ -798,16 +810,22 @@ export function CustomerUnitTabClient({
     const selectedMeter = availableMeters.find(
       (meter) => meter.meterKey === effectiveMeterKey
     )
+    const meterDisplayName =
+      selectedMeter?.label?.trim() ||
+      selectedMeter?.name ||
+      (effectiveMeterKey || "Selected meter")
 
     return (
       <div className="space-y-6">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold">{unit.unitId}</h1>
-              <p className="text-sm text-muted-foreground">
-                {selectedMeter?.name ?? (effectiveMeterKey || "Selected meter")}
-              </p>
+            <div className="min-w-0">
+              <h1 className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-2xl font-semibold">
+                <span className="truncate">{meterDisplayName}</span>
+                <span className="text-base font-medium text-muted-foreground">
+                  ({unitDisplayName})
+                </span>
+              </h1>
             </div>
             <label className="grid gap-2 text-sm sm:min-w-56">
               <span className="font-medium">Meter</span>
@@ -818,7 +836,7 @@ export function CustomerUnitTabClient({
               >
                 {availableMeters.map((meter) => (
                   <option key={meter.meterKey} value={meter.meterKey}>
-                    {meter.name}
+                    {meter.label?.trim() || meter.name}
                   </option>
                 ))}
               </select>
@@ -834,7 +852,7 @@ export function CustomerUnitTabClient({
           hourlyCurrentPoints={hourlyCurrent.points}
           energyAnalytics={energyAnalytics}
           meterName={
-            selectedMeter?.name ?? (effectiveMeterKey || "Selected meter")
+            meterDisplayName
           }
         />
       </div>
@@ -844,7 +862,7 @@ export function CustomerUnitTabClient({
   if (tab === "reports") {
     return (
       <EmsReportsPanel
-        unitId={unit.unitId}
+        unitDisplayName={unitDisplayName}
         effectiveMeterKey={effectiveMeterKey}
         availableMeters={availableMeters}
         onMeterChange={setSelectedMeterKey}
@@ -875,7 +893,7 @@ export function CustomerUnitTabClient({
       <div className="overflow-hidden rounded-2xl border bg-gradient-to-r from-card to-muted/25 p-4 shadow-sm">
         <div className="flex min-w-0 flex-wrap items-start gap-3">
           <h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight break-all">
-            {unit.unitId}
+            {unitDisplayName}
           </h1>
         </div>
       </div>
